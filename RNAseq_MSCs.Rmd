@@ -1,0 +1,534 @@
+---
+title: "Differential Gene Expression in MSCs"
+author: "Ramil Hakim"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    number_sections: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Project Description
+
+**Hypothesis:** *The transcriptome of bone marrow derived mesenchymal stem cells (MSCs) transplanted into a spinal cord injury environment is altered as compared to MSCs transplanted into uninjured spinal cord.*
+
+**Experimental setup & sequencing:** mCherry+MSCs were transplanted into injured (75 kdyn contusion injury, 24h post SCI) or uninjured spinal cord using a glas capillary pipette. C57BL/6J female mice were utilized. At 7 days post transplantation the mCherry+MSCs were FACSed. Injured and uninjured (when applicable) were used for setting positive mCherry gate. Total RNA, digested of DNase, was isolated and sequenced (125 cycles paired-end) in two lane using the HiSeq2500 system and v4 sequencing chemistry (Illumina Inc.) performed by the SNP&SEQ Technology Platform (Stockholm, Sweden).   
+
+**Data analysis:** A read count matrix was obtained from the sequencing core facility. Data was analyed using the edgeR and limma packages (both available through bioconductor.org) using R version 3.4.1. Two additional key packages used were ggplot2 and data.table.    
+
+***
+
+# Data Overview
+
+```{r echo=F, warning=F, message=F, error=F}
+# #1. Installing packages
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("limma")
+
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("edgeR")
+
+# source("https://bioconductor.org/biocLite.R")
+# biocLite("Mus.musculus")
+
+#install.packages("data.table")
+#install.packages("ggplot2")
+#install.packages("cowplot")
+#install.packages("RColorBrewer")
+#install.packages("gplots")
+#install.packages("pvclust")
+#install.packages("VennDiagram")
+# install.packages("rafalib")
+#install.packages("grid")
+#install.packages("colorspace")
+#install.packages("ellipse")
+#install.packages("ggrepel")
+#install.packages("rafalib")
+#install.packages("boot")
+#install.packages("pvclust")
+#install.packages("RCurl")
+#install.packages("XML")
+#install.packages("xml2")
+
+#2. Attaching packages
+library(limma)
+library(edgeR)
+library(Mus.musculus)
+
+library(data.table)
+library(ggplot2)
+library(cowplot)
+library(gridExtra)
+library(grid)
+
+library(colorspace)
+library(RColorBrewer)
+library(gplots)
+library(VennDiagram)
+library(ellipse)
+library(ggrepel)
+library(rafalib)
+
+library(boot)
+library(pvclust)
+
+library(knitr)
+library(pander)
+
+library(RCurl)
+library(XML)
+library(xml2)
+
+rm(list=ls())
+
+#Importing function for sharing legend 
+source("/home/ramhak/Dropbox/PHD/PAPER I/R_v2/Function_directory/get_legend.R")
+```
+
+```{r echo=F, warning=F, message=F, error=F}
+############## IMPORTING DATA & ANNOTATING GENES & ORGANISING META DATA #############
+```
+
+```{r echo=F, warning=F, message=F, error=F}
+#1. Importing read count matrix
+DT_read_count <- fread("merged_gene_counts.txt", header=T)
+names(DT_read_count) <- c(names(DT_read_count)[1], do.call(rbind, lapply(names(DT_read_count)[2:length(names(DT_read_count))], function(col_name){substr(col_name, 7, 9)})))
+
+#2. Retrieving gene annotations (SYMBOL) based on ENSEMBL_ID
+gene_annotations <- data.table(select(Mus.musculus, keys=DT_read_count[,as.character(ENSEMBL_ID)], columns="SYMBOL", keytype = "ENSEMBL"))
+
+#3. Removing duplicates in retrieved annotations
+gene_annotations <- gene_annotations[!duplicated(ENSEMBL)]
+
+#4. Adding gene annotations to read_count_matrix 
+DT_read_count <- merge(DT_read_count, gene_annotations, by.x="ENSEMBL_ID", by.y="ENSEMBL")
+DT_read_count <- setcolorder(DT_read_count, c(1,24,2:23))
+
+#5. Importing meta_data
+DT_meta_data <- fread("meta_data.csv")
+DT_meta_data <- DT_meta_data[Status=="Included", !c("RH.index", "Status")]
+names(DT_meta_data) <- c("ID", "group")
+
+#6. Adding library size (=column sums)
+DT_meta_data <- DT_meta_data[,library.size:=colSums(DT_read_count[,-(1:2)])]
+
+#7. Adding normalisation factor (=1 initially)
+DT_meta_data <- DT_meta_data[,norm.factor:=1]
+
+#8. Defining factor variables
+factor_vars <- c("ID", "group")
+DT_meta_data[,factor_vars] <- DT_meta_data[,lapply(.SD, factor), .SDcols=factor_vars]
+
+###SECTION OUTPUT
+#Table with dataset characteristics
+pander(data.table(Characteristic=c("Samples (n):","Groups (n):","Unique ENSEMBL IDs (n):"), Value= c(ncol(DT_read_count[,-(1:2)]), length(unique(DT_meta_data[,group])), nrow(DT_read_count))), justify=c("left", "left"))
+```
+
+***
+# Data Pre-Processing
+## Transforming from raw scale and removing lowly expressed genes
+
+**Background:** The expression of a gene must reach a certain threshold for it to be translated into a protein. Translation into a protein is a prerequiste for a gene to have any biological function. Thus, genes with low number of read counts across samples are probably not differentially expressed and should be removed. However, a greater sequencing depth (i.e. a larger library size) will result in a higher read count, thus introducing a bias to the DGE analysis. Therefore, prior to filtering, raw counts are transformed into counts per million (CPM) which accounts for the difference in library size. 
+
+**Transformation:** Raw counts are transformed into CPM by dividing each count with the sum of the column (i.e. the library size) and then multiplying by 1e6. Log-CPM is calculated by taking log2 (raw count + 0.25).
+
+**Filtering:** Lowly expressed genes are removed from the count matrix by filtering. A gene is defined as highly expressed if CPM>1 for at least three samples. Three samples was chosen since it is equal to the smallest group size (which is equal between groups in this case).   
+
+**Fig 1. Density of log-CPM values pre -and post filtering**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=4, fig.width=12}
+#1. Creating log CPM matrix 
+DT_lcpm_unfiltered <- data.table(cpm(DT_read_count[,-c(1:2)], log=T, lib.size = colSums(DT_read_count[,-c(1:2)])))
+
+#2. Filtering out lowly expressed genes from read_count_matrix
+DT_read_count_filtered <- DT_read_count[rowSums(DT_lcpm_unfiltered>0)>=3]
+
+#3. Calculating log cpm matrix 
+DT_lcpm <- cpm(DT_read_count_filtered[,-c(1:2)], log=T, lib.size = colSums(DT_read_count_filtered[,-c(1:2)]))
+
+#4. Melting data for plotting
+lcpm_unfiltered_plotdata <- suppressWarnings(melt.data.table(data.table(DT_lcpm_unfiltered), variable.name="sample", value.name = "lcpm"))
+lcpm_filtered_plotdata <- suppressWarnings(melt.data.table(data.table(DT_lcpm), variable.name="sample", value.name = "lcpm"))
+
+#5. Plotting function
+logCPM_density_plot_function <- function(plot.data, type, legend.type){
+  logCPM_density_plot_out <- ggplot(plot.data, aes(x=lcpm, color=sample))+
+  geom_line(stat="density", size=1.25)+
+  geom_vline(xintercept=0, linetype=2)+
+
+  scale_x_continuous(breaks=seq(-10,16,2), limits=c(-8,16))+
+  scale_y_continuous(breaks=seq(0,0.6,0.05), limits=c(0,0.6))+
+  scale_color_manual(values=diverge_hcl(22, c=100, l=c(50,90), power=1), name="Sample")+
+  annotate("text", x=5, y=0.55, label=type, size=7.5, alpha=0.6)+
+  annotate("text", x=5, y=0.5, label=paste("Genes (n):", toString(unique(plot.data[,.N, by="sample"][,N]))), fontface=2, size=4)+
+  theme(legend.position=legend.type, axis.title = element_blank())
+  
+  if(type =="RAW"){
+    logCPM_density_plot_out <- logCPM_density_plot_out + annotate("text", x=-8, y=0.6, label="A", size=7.5, fontface=2) 
+  } else if(type=="FILTERED"){
+    logCPM_density_plot_out <- logCPM_density_plot_out + annotate("text", x=-8, y=0.6, label="B", size=7.5, fontface=2)
+  }
+
+  return(logCPM_density_plot_out)  
+}
+
+density_raw_plot <- logCPM_density_plot_function(lcpm_unfiltered_plotdata, "RAW","right")
+density_legend <- get_legend(density_raw_plot)
+density_raw_plot <- logCPM_density_plot_function(lcpm_unfiltered_plotdata, "RAW","none")
+density_filtered_plot <- logCPM_density_plot_function(lcpm_filtered_plotdata, "FILTERED","none")
+
+###SECTION OUTPUT
+grid.arrange(density_raw_plot, density_filtered_plot, ncol=2, widths=c(3,3), bottom=textGrob("log-CPM", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Density", gp=gpar(fontsize=17, fontface="bold"), rot=90))
+
+```
+
+**Fig 1.** _Figure reports the density of log-CPM for every sample (by color) pre -and post filtering of lowly expressed genes. Filtering is conducted using log-CPM values. Vertical dashed line represents the cut off (log-CPM=0). The figure shows a distinct shift of the density from below the threshold (Fig 1A) to above the threshold (Fig 1B)._  
+
+***
+##Normalizing gene expression distributions
+
+**Background:** The read count is affected by: 1) the gene expression and 2) the sequencing depth. The sequencing depth equals the library size. The library size is defined as the sum of counts for each sample (i.e. column sum). The counts per sample represent the relative abundance of each gene. Highly expressed genes can consume a substantial proportion of the library size thus making the other genes seem underexpressed. Therefore, normalization is conducted in order to ensure that the distribution of the expression is similar for each sample. All samples should have a smiliar range and distribution of expression (log-CPM). 
+
+**Normalization:** Scaling factors are calculated using the trimmed mean of M-values (TMM). The algorithm finds a set of scaling factors which minimizes the log-fold change between the samples. Scaling factors >1 downscale the counts while scaling factors <1 scale the counts upwards. The effective library size is then obtained by taking the product of the original library size and the scaling factor for each sample respectively.  
+
+```{r echo=F, warning=F, message=F, error=F}
+############## NORMALISING GENE EXPRESSION DISTRIBUTIONS #############
+```
+
+```{r echo=F, warning=F, message=F, error=F}
+#1. Calculating norm.factors using TMM method and adding to meta_data
+DT_meta_data <- DT_meta_data[,norm.factor.tmm:=calcNormFactors(DT_read_count_filtered[,-(1:2)], method = "TMM")]
+
+#2. Calculating adjusted library sizes in meta_data
+DT_meta_data <- DT_meta_data[,effective.library.size:=library.size*norm.factor.tmm]
+```
+
+**Fig 2. Distribution of log-CPM pre -and post normalization**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=5, fig.width=12}
+#1. Calculating log2 of read_count_matrix with unadjusted and adjusted library size respectively
+lcpm_temp_notNormalised <- cpm(DT_read_count_filtered[,-(1:2)], log=T, lib.size = DT_meta_data[,library.size])
+lcpm_temp <- cpm(DT_read_count_filtered[,-(1:2)], log=T, lib.size = DT_meta_data[,effective.library.size])
+
+#2. Adding id columns and creating data.tables
+DT_lcpm_notNormalised <- data.table(DT_read_count_filtered[,c(1:2)], lcpm_temp_notNormalised)
+DT_lcpm <- data.table(DT_read_count_filtered[,c(1:2)], lcpm_temp)
+
+#3. Creating plotting data
+DT_lcpm_notNormalised_melt <- melt.data.table(DT_lcpm_notNormalised, id.vars=c("ENSEMBL_ID", "SYMBOL"), variable.name = "sample")
+DT_lcpm_melt <- melt.data.table(DT_lcpm, id.vars=c("ENSEMBL_ID", "SYMBOL"), variable.name = "sample")
+
+#4. Plotting function for gene expression distribution of 
+log_cpm_distribution_function <- function(dataset, type){
+  log_cpm_distribution_plot <- ggplot(dataset, aes(sample,value, color=sample))+
+  geom_jitter(DT_lcpm_notNormalised_melt[,.(value=sample(value,10000)), by="sample"], mapping=aes(sample, value),alpha=0.05)+
+  geom_boxplot(size=1, color="black", alpha=0)+
+
+  scale_y_continuous(limits=c(-8,20), breaks=seq(-10,20,2))+
+  scale_fill_manual(values=diverge_hcl(22, c=100, l=c(50,90), power=1), name="Sample:")+
+  scale_color_manual(values=diverge_hcl(22, c=100, l=c(50,90), power=1), name="Sample:")+
+    
+  theme(legend.position = "none", axis.title = element_blank(), axis.text.x = element_text(size=10, angle = 90))+
+  annotate("text", x=11.5, y=18, label=type, size=7.5, alpha=0.6)
+  
+  if(type =="RAW"){
+    log_cpm_distribution_plot <- log_cpm_distribution_plot + annotate("text", x=2, y=20, label="A", size=7.5, fontface=2)
+  } else if(type=="NORMALIZED"){
+    log_cpm_distribution_plot <- log_cpm_distribution_plot + annotate("text", x=2, y=20, label="B", size=7.5, fontface=2)
+  }
+
+  return(log_cpm_distribution_plot)
+  
+}
+
+###SECTION OUTPUT
+grid.arrange(log_cpm_distribution_function(DT_lcpm_notNormalised_melt, "RAW"), log_cpm_distribution_function(DT_lcpm_melt, "NORMALIZED"), ncol=2, bottom=textGrob("Sample", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("log-CPM", gp=gpar(fontsize=17, fontface="bold"), rot=90))
+```
+
+**Fig 2.** _Figure reports the distribution of gene expression (log-CPM) for each sample. Fig 2A reports the distribution prior to normalization while Fig 2B reports the distribution following normalization of library sizes using trimmed means of M-values. Boxplots are based on all log-CPM values while points represent a random sample of 1e4 observations (due to processing time issues). The difference in the distribution of log-CPM using original and effective library sizes is minor but adjusted for._
+
+***
+
+```{r echo=F, warning=F, message=F, error=F}
+########################################### UNSUPERVISED LEARNING 1: PCA ############################################
+```
+
+# Unsupervised Clustering 1: PCA
+
+**Principal component analysis (PCA):** A PCA aims at producing a low-dimensional representation of the dataset. The principal components are each normalized linear combinations of a set of features constructed with loadings with the intention to achieve maximal variance. Normalized means that the sum of squared loadings equals one. Furthermore, the principal components are constructed to be uncorrelated to each other.  
+
+**Fig 3. Variance explained by principal components based on the 500 genes with highest variance**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
+#1. Calculating the variance for each gene
+gene_variance <- data.table(DT_lcpm[,c(1:2)], variance=apply(DT_lcpm[,-(1:2)], 1, var))
+
+#2. Selecting the 500 genes with highest variance 
+gene_variance_top500 <- gene_variance[order(-variance)][1:500]
+
+#3. Calculating principal components for the genes with highest variance (top 500) from DT_lcpm
+setkey(DT_lcpm, ENSEMBL_ID)
+DT_principal_comp_raw <- prcomp(t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)]))
+DT_principal_comp_summary <- data.table(sd=summary(DT_principal_comp_raw)$sdev)
+
+#4. Subsetting data for plotting
+DT_principal_comp <- data.table(RH.index=factor(rownames(DT_principal_comp_raw$x)), DT_principal_comp_raw$x)
+
+#5. Merging with meta_data 
+DT_principal_comp <- merge(DT_principal_comp, DT_meta_data[,c(1:3)], by.x="RH.index", by.y="ID")
+
+#6. Calculating proportion of explained variance 
+DT_principal_comp_summary <- DT_principal_comp_summary[,var:=sd**2][,var.prop:=var/sum(var)][,var.prop.cumsum:=cumsum(var.prop)]
+
+PCA_plot_prop.var_function <- function(dataset, yvariable,color){
+  explained_var_plot <- ggplot(dataset, aes(1:22,get(yvariable)))+
+  geom_bar(stat="identity", fill=brewer.pal(11, "RdBu")[color], alpha=0.9, width=0.7)+
+  geom_point(size=4, shape=18)+
+  geom_line(linetype=2, size=1.5)+
+  geom_text(aes(label=format(round(get(yvariable),2), digits = 2)), vjust=-1, fontface="bold", size=4)+
+  
+  scale_x_discrete(limits=seq(1,22,1))+
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1.1))+
+  theme(axis.title= element_blank())
+  
+  if(yvariable=="var.prop"){
+    explained_var_plot <- explained_var_plot + annotate("text", x=1, y=1.1, label="A", fontface=2, size=7.5)+ annotate("text", x=11.5, y=1.1, label="PROPORTIONAL", size=7.5, alpha=0.6)
+  } else if(yvariable=="var.prop.cumsum"){
+    explained_var_plot <- explained_var_plot + annotate("text", x=1, y=1.1, label="B", fontface=2, size=7.5)+annotate("text", x=11.5, y=1.1, label="CUMULATIVE", size=7.5, alpha=0.6)
+  }
+  
+  return(explained_var_plot)
+}
+
+#8. Subsetting log CPM using the 500 genes with highest variance
+DT_pca_sim <- DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)]
+
+#9. Boostrapping proportion of variance for each principal component   
+DT_pca_boot_conf <- boot(DT_pca_sim, function(dataset, b){summary(prcomp(t(dataset[b])))$importance[2,]},1000)
+
+#10. Extracting 95 % confidence intervals from bootstrapped data (10 first components)
+DT_pca_boot_conf_summary <- suppressWarnings(data.table(do.call(rbind, lapply(1:10, function(column){boot.ci(DT_pca_boot_conf, type="bca", index=column)$bca[(4:5)]}))))
+names(DT_pca_boot_conf_summary) <- c("CI.Lower", "CI.Upper")
+
+#11. Converting bootstrapped data into plotable data 
+DT_pca_boot_conf_plotdata <- data.table(DT_pca_boot_conf$t)[, 1:10]
+names(DT_pca_boot_conf_plotdata) <- names(DT_pca_boot_conf$t0)[1:10]
+DT_pca_boot_conf_plotdata <- suppressWarnings(melt.data.table(DT_pca_boot_conf_plotdata, variable.name = "PC.type"))
+
+#12. Plotting function for prop.var explained distribution
+pca_boot_conf_function <- function(data.set.conf){
+  pca_boot_conf_out <- ggplot(data.set.conf, aes(value, fill=PC.type))+
+  geom_rect(aes(xmin=DT_pca_boot_conf_summary[1,CI.Lower], xmax=DT_pca_boot_conf_summary[1,CI.Upper], ymin=0, ymax=100), fill="grey", alpha=0.05)+
+  geom_histogram(alpha=0.7, bins=40, position="identity")+
+  
+  scale_fill_manual(values=brewer.pal(10, "RdBu"))+
+  
+  theme(legend.title = element_blank(), legend.position = "right", axis.title = element_blank())
+  
+  if(data.set.conf[,PC.type][1]!="PC1"){
+    pca_boot_conf_out <- pca_boot_conf_out + scale_x_continuous(breaks=seq(0,0.05,0.01), limits = c(0,0.08))+scale_y_continuous(breaks=seq(0,1100,100), limits=c(0,1100))+annotate("text", x=0.005, y=1100, label="B", size=7.5, fontface=2)
+  } else if(data.set.conf[,PC.type][1]=="PC1"){
+    pca_boot_conf_out <- pca_boot_conf_out + scale_x_continuous(breaks=seq(0.9,1,0.01))+scale_y_continuous(breaks=seq(0,110,10), limits=c(0,110))+annotate("text", x=0.755, y=110, label="A", size=7.5, fontface=2)+annotate("text", x=0.8, y=110, label=paste("95 % CI:\n",toString(round(DT_pca_boot_conf_summary[1,CI.Lower],2)), "-", round(DT_pca_boot_conf_summary[1,CI.Upper],2)), size=4, fontface=2)
+  }
+
+  return(pca_boot_conf_out)
+}
+
+###SECTION OUTPUT
+grid.arrange(PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop",1),PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop.cumsum",11), ncol=2, bottom=textGrob("Principal component", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Proportion variance explained", gp=gpar(fontface="bold", fontsize=17), rot=90))
+
+```
+
+**Fig 3.** _Figure reports the proportion variance explained by each principal component. Fig 3A reports the proportional variance explained by each component while Fig 3B reports the cumulative variance explained by the components. It is obvious that the first principal component explains the majority of the variance while the remaining components explain only a small portion of the variance._
+
+**Fig 4. Estimation of distribution of the variance explained by the principal components **
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
+# grid.arrange(pca_boot_conf_function(DT_pca_boot_conf_plotdata[PC.type=="PC1"]),pca_boot_conf_function(DT_pca_boot_conf_plotdata[PC.type!="PC1"]), ncol=2, bottom=textGrob("Proportional variance explained", gp=gpar(fontsize=17, fontface="bold")),left=textGrob("Count (n)", gp=gpar(fontface="bold", fontsize=17), rot=90))
+
+```
+
+**Fig 4.** _Figure reports the distribution of bootstrapped proportion of variance explained by each principal component. Bootstrap is conducted using the 500 genes with the highest variance. Fig 4A reports the distribution for the first principal component while Fig 4B reports the distribution for the remaining eleven components (due to differences in magnitude). Shaded region in Fig 4A represents a bootstrapped nonparametric 95 % confidence interval. The histograms show narrow distributions which confirms the observations and conclusion in Fig 3._
+
+**Table 2. Upper and lower bounds (95 % confidence interval) for the proportion of variance explained by principal component 1 to 11 **
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
+kable(data.table("bound"=c("Upper bound:", "Lower bound:"),t(round(DT_pca_boot_conf_summary,3))), col.names = c(" ", paste(rep("PC", 10), 1:10, sep="")), align="c")
+```
+
+***
+
+**Fig 5. Multidimensional scaling plot of the 500 genes with the highest variance**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#1. Creating data for ellipses
+ellipse_data <- suppressWarnings(do.call(rbind,lapply(split(DT_principal_comp, DT_principal_comp[,group]), function(group.object){data.table(group=group.object[,group],with(group.object, ellipse::ellipse(cor(PC1,PC2), scale = c(sd(PC1), sd(PC2)), centre=c(mean(PC1), mean(PC2)), t=1.5)))})))
+
+#2. Creating group_names to avoid repetition in plot
+group_names <- c("MSC[in vitro]", "MSC[Naive]", "MSC[SCI]")
+
+#3. Creating MDS plot
+PCA_plot_mds <- ggplot(DT_principal_comp, aes(PC1, PC2))+
+  geom_segment(aes(x=-100, xend=100, y=0, yend=0), size=0.2)+
+  geom_segment(aes(x=0, xend=0, y=-15, yend=20), size=0.2)+
+  geom_polygon(ellipse_data, mapping=aes(x,y, fill=group), alpha=0.2, show.legend = F)+
+  geom_point(aes(color=group, shape=group), size=7, alpha=0.8)+
+
+  xlab("Principal component 1")+
+  ylab("Principal component 2")+
+  
+  scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+  scale_shape_manual(values=c(18,17,16), labels=group_names)+
+  scale_fill_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+  scale_x_continuous(breaks=seq(-100, 150, 20))+
+  scale_y_continuous(breaks=seq(-20, 30, 2))+
+  
+  theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"))+
+  
+  annotate("text", x=-30, y=13, label="MSC[Naive]", size=6, fontface=2)+
+  annotate("text", x=-30, y=-8, label="MSC[SCI]", size=6, fontface=2)+
+  annotate("text", x=100, y=6, label="MSC[in vitro]", size=6, fontface=2)
+
+###SECTION OUTPUT
+PCA_plot_mds
+# ggsave("PCA_plot_mds.jpg", PCA_plot_mds, dpi=1000, height = 7, width=14)
+
+```
+
+**Fig 5.** _Figure reports the distribution of the samples along the first and second principal component. Study groups are indicated with ellipses. Ellipses represent a 95 % confidence interval based on the samples within each group. There is a distinct separation between the four study groups. Uninjured samples separate from the three other study groups which contain animals exposed to SCI. The syngeneic and allogenic groups do form an "venn diagram like" pattern in relation to the injury only group in the sense that they both have one animal which overlaps with the injury control study group._
+
+**Fig 6. K means clustering (4 groups) of 1000 boostrap replicates for the first -and second principal component for the 500 genes with the highest variance** 
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#1. Bootstrap function: boostrap from top 500 genes with highest variance and calculate PC1 and PC2 
+pca_simulation_function <- function(dataset, run){
+  sim_data <- dataset[sample(1:500, replace = T)]
+  sim_prcomp_raw <- prcomp(t(sim_data))$x[,(1:2)]
+  sim_prcomp <- data.table(ID=rownames(sim_prcomp_raw),sim_prcomp_raw)
+  return(sim_prcomp)
+}
+
+#2. Calling boostrap function, creating data table and merging with group name 
+DT_pca_boot <- do.call(rbind, lapply(1:1000, function(dataset,i){pca_simulation_function(DT_pca_sim,i)}))
+DT_pca_boot <- merge(DT_pca_boot, DT_meta_data[,.(ID, group)], by="ID")
+
+#3. Adding K-means clustering
+DT_pca_boot_kmeans <- kmeans(DT_pca_boot[,c(2,3)], 3, nstart=20)
+DT_pca_boot <- DT_pca_boot[,k.mean.cluster:=factor(DT_pca_boot_kmeans$cluster)]
+
+#4. K means clustering on original samples (raw data, not boostrapped)
+DT_pca_kmean_sample <- DT_principal_comp[,.(PC1, PC2, RH.index, group)]
+DT_pca_kmean_sample <- DT_pca_kmean_sample[,k.mean.group:=factor(kmeans(DT_principal_comp[,.(PC1,PC2)], 4, nstart=20)$cluster)]
+
+#5. Creating ellipse data for bootstraped PCA data
+ellipse_data_boot <- do.call(rbind,lapply(split(DT_pca_boot, DT_pca_boot[,k.mean.cluster]), function(cluster){data.table(cluster=rep(unique(cluster[,k.mean.cluster]),100), with(cluster, (ellipse::ellipse(cor(PC1,PC2), scale = c(sd(PC1), sd(PC2)), centre=c(mean(PC1), mean(PC2))))))}))
+
+#6. Plotting function for bootstrapped PCA
+color_palette <- brewer.pal(11, "RdBu")[c(1,2,10)]
+
+PCA_sim_plot_function <- function(dataset, group.var){
+
+  PCA_sim_plot_out <- ggplot(dataset, aes(PC1, PC2))+
+  geom_segment(aes(x=-100, xend=100, y=0, yend=0), size=0.2)+
+  geom_segment(aes(x=0, xend=0, y=-25, yend=25), size=0.2)+
+  geom_polygon(ellipse_data_boot, mapping=aes(x,y, fill=cluster), alpha=0.2, show.legend = F)+
+  geom_jitter(aes(color=get(group.var)), alpha=0.2, size=2, width=1.5, show.legend = F)+
+  geom_point(DT_pca_kmean_sample, mapping=aes(PC1, PC2, shape=group), size=5)+
+  
+  xlab("Principal component 1")+
+  ylab("Principal component 2")+
+
+  scale_color_manual(values=color_palette)+
+  scale_fill_manual(values=color_palette)+
+  scale_shape_manual(values=c(18,17,16), labels=group_names)+
+  scale_x_continuous(breaks=seq(-100, 150, 20))+
+  scale_y_continuous(breaks=seq(-30, 35, 5))+
+  
+  theme(legend.title = element_blank(), legend.position = "bottom", legend.text = element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"))+
+    
+  annotate("text", x=-90, y=20, label="K1", fontface=4, size=6)+
+  annotate("text", x=-35, y=20, label="K2", fontface=4, size=6)+
+  annotate("text", x=100, y=5, label="K3", fontface=4, size=6)
+
+  return(PCA_sim_plot_out)
+  
+}
+
+###SECTION OUTPUT
+PCA_sim_plot_function(DT_pca_boot, "k.mean.cluster")
+# ggsave("PCA_plot_boot.jpg",PCA_sim_plot_function(DT_pca_boot, "k.mean.cluster"), dpi=1000, width=14, height=7)
+
+```
+
+**Fig 6.** _Figure reports the first and second principal component for 1000 bootstrapped replicates per sample based on the 500 genes with highest variance. K means clustering with 4 groups and 20 starts was conducted on both the bootstrapped data. Ellipses are centered around the mean value of the botstrapped values for each cluster and represent a 95 % confidence interval for the data in each cluster. The clustering confirms the hypothesis postulated in Fig 5._ 
+
+**Fig 7. Top 10 positive and negative loadings for the first -and second principal component**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=5, fig.width=12}
+#1. Selecting PC1 and PC2 and adding gene names 
+DT_loadings <- data.table(SYMBOL=gene_variance_top500[,SYMBOL], DT_principal_comp_raw$rotation[,(1:2)])
+
+#2. Creating table data
+DT_loadings_sub_function <- function(data.load, pc.type, n){
+  load_out <- data.load[,.(SYMBOL, get(pc.type))][order(V2)]
+  load_out <- rbind(tail(load_out, n), head(load_out, n))
+  load_out[,"V2"] <- round(load_out[, V2],3)
+  load_out <- load_out[ ,PC.type:=pc.type]
+  names(load_out) <- c("Gene", "PC.value", "PC.type")
+  return(load_out)  
+}
+
+DT_loadings_plotdata <- rbind(DT_loadings_sub_function(DT_loadings[!is.na(SYMBOL)],"PC1", 10), DT_loadings_sub_function(DT_loadings[!is.na(SYMBOL)],"PC2", 10))
+
+#3. Adding a type variable for plotting purposes
+DT_loadings_plotdata <- DT_loadings_plotdata[,sign.type:=factor(ifelse(PC.value>0,"pos","neg"))]
+
+#4. Plotting function
+DT_loadings_plot_function <- function(data.set.loading, pc.type){
+  data.set.loading <- data.set.loading[PC.type==pc.type]
+  data.set.loading[,"Gene"] <- factor(data.set.loading[, Gene], levels=unique(data.set.loading[,Gene]))
+  
+  DT_loadings_out <- ggplot(data.set.loading, aes(Gene, PC.value, fill=PC.type))+
+  geom_bar(aes(alpha=sign.type), stat="identity", show.legend = F)+
+  geom_text(data.set.loading[PC.value>0], mapping=aes(label=round(PC.value,2)), hjust=-0.5, fontface=2, size=5)+
+  geom_text(data.set.loading[PC.value<0], mapping=aes(label=round(PC.value,2)), hjust=1.5, fontface=2, size=5)+
+  geom_segment(aes(x=0, xend=20, y=0, yend=0), size=2, linetype=2)+
+  coord_flip()+
+  
+  scale_y_continuous(breaks=seq(-0.2,0.2,0.02))+
+  scale_alpha_manual(values=c(0.7,0.9))+
+  
+  theme(axis.text.x = element_text(size=18), axis.title.x = element_text(face="bold", size=22), axis.title.y = element_blank(), axis.text.y = element_text(size=15))
+  
+  if(pc.type=="PC1"){
+    DT_loadings_out <- DT_loadings_out+scale_fill_manual(values=brewer.pal(11, "RdBu")[1])+annotate("text", x=20, y=-0.10, label="A", size=7.5, fontface=2) + ylab("Principal component 1")
+  } else if(pc.type=="PC2"){
+    DT_loadings_out <- DT_loadings_out+scale_fill_manual(values=brewer.pal(11, "RdBu")[11])+annotate("text", x=20, y=-0.19, label="B", size=7.5, fontface=2)+ylab("Principal component 2")
+  }
+  
+  return(DT_loadings_out)
+}
+
+###SECTION OUTPUT
+grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
+
+# #Saving loadings plot for PC1
+# ggsave("loadings_plot.jpg",DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), dpi=1000, width=14, height=7)
+
+```
+
+
+
+
+
+
+
+
+
+
