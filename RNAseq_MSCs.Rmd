@@ -521,7 +521,8 @@ tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
 
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
- 
+#Clustering
+
 #     + Expectation maximisation (EM)
 #         http://rstudio-pubs-static.s3.amazonaws.com/154174_78c021bc71ab42f8add0b2966938a3b8.html
 #     + Affinity propagation 
@@ -534,6 +535,37 @@ tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
 #         Done: 
 
 #Do common plot function -> call and present in grid.arrange
+
+#Dimensionality reduction
+
+    # + Principal component regression
+    # 
+    # + Partial least squares regression
+    # 
+    # + Sammon mapping
+    # 
+    # + Multidimensional scaling (MDS)
+    # 
+    # + Projection pursuit
+    # 
+    # + Linear discriminant analysis (LDA)
+    # 
+    # + Mixture discriminant analysis (MDA)
+    # 
+    # + Quadratic discriminant analysis (QDA)
+    # 
+    # + Flexible discriminant analysis (FDA)
+    # 
+    # + Partial least squares discriminant analysis 
+    # 
+    # + Latent dirichlet analysis
+    # 
+    # + Singular value decomposition
+    # 
+    # + Sammon mapping
+
+
+
 
 
 ```
