@@ -15,6 +15,12 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Executive Summary
+
+
+
+
+
 # Project Description
 
 **Hypothesis:** *The transcriptome of bone marrow derived mesenchymal stem cells (MSCs) transplanted into a spinal cord injury environment is altered as compared to MSCs transplanted into uninjured spinal cord.*
@@ -56,6 +62,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("RCurl")
 #install.packages("XML")
 #install.packages("xml2")
+# install.packages("caret")
+# install.packages("Rtsne")
 
 #2. Attaching packages
 library(limma)
@@ -85,6 +93,9 @@ library(pander)
 library(RCurl)
 library(XML)
 library(xml2)
+
+library(caret)
+library(Rtsne)
 
 rm(list=ls())
 
@@ -389,11 +400,13 @@ PCA_plot_mds <- ggplot(DT_principal_comp, aes(PC1, PC2))+
   scale_x_continuous(breaks=seq(-100, 150, 20))+
   scale_y_continuous(breaks=seq(-20, 30, 2))+
   
-  theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"))+
+  theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"), axis.line = element_blank(), axis.ticks = element_blank())+
   
   annotate("text", x=-30, y=13, label="MSC[Naive]", size=6, fontface=2)+
   annotate("text", x=-30, y=-8, label="MSC[SCI]", size=6, fontface=2)+
-  annotate("text", x=100, y=6, label="MSC[in vitro]", size=6, fontface=2)
+  annotate("text", x=100, y=6, label="MSC[in vitro]", size=6, fontface=2)+
+  
+  annotate(geom="text", x=0, y=0, label="PCA", size=10, fontface=2, alpha=0.7)
 
 ###SECTION OUTPUT
 PCA_plot_mds
@@ -402,6 +415,8 @@ PCA_plot_mds
 ```
 
 **Fig 5.** _Figure reports the distribution of the samples along the first and second principal component. Study groups are indicated with ellipses. Ellipses represent a 95 % confidence interval based on the samples within each group. There is a distinct separation between the four study groups. Uninjured samples separate from the three other study groups which contain animals exposed to SCI. The syngeneic and allogenic groups do form an "venn diagram like" pattern in relation to the injury only group in the sense that they both have one animal which overlaps with the injury control study group._
+
+# K-means clustering of boostrapped principal components 
 
 **Fig 6. K means clustering (4 groups) of 1000 boostrap replicates for the first -and second principal component for the 500 genes with the highest variance** 
 
@@ -450,11 +465,13 @@ PCA_sim_plot_function <- function(dataset, group.var){
   scale_x_continuous(breaks=seq(-100, 150, 20))+
   scale_y_continuous(breaks=seq(-30, 35, 5))+
   
-  theme(legend.title = element_blank(), legend.position = "bottom", legend.text = element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"))+
+  theme(legend.title = element_blank(), legend.position = "bottom", legend.text = element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"), axis.line = element_blank(), axis.ticks = element_blank())+
     
   annotate("text", x=-90, y=20, label="K1", fontface=4, size=6)+
   annotate("text", x=-35, y=20, label="K2", fontface=4, size=6)+
-  annotate("text", x=100, y=5, label="K3", fontface=4, size=6)
+  annotate("text", x=100, y=5, label="K3", fontface=4, size=6)+
+    
+  annotate(geom="text", x=0, y=0, label="PCA", fontface=2, size=10, alpha=0.7)
 
   return(PCA_sim_plot_out)
   
@@ -467,6 +484,60 @@ PCA_sim_plot_function(DT_pca_boot, "k.mean.cluster")
 ```
 
 **Fig 6.** _Figure reports the first and second principal component for 1000 bootstrapped replicates per sample based on the 500 genes with highest variance. K means clustering with 4 groups and 20 starts was conducted on both the bootstrapped data. Ellipses are centered around the mean value of the botstrapped values for each cluster and represent a 95 % confidence interval for the data in each cluster. The clustering confirms the hypothesis postulated in Fig 5._ 
+
+# t-distributed Stochastic Neighbour Embedding
+
+*Explanation
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#1. Dimensionality reduction using t-SNE 
+DT_tSNE_raw <- t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)])
+DT_tSNE <-  Rtsne(as.matrix(DT_tSNE_raw), check_duplicates=FALSE, pca=TRUE, perplexity=3, theta=0.5, dims=2)
+tSNE_plot_data <- data.table(DT_tSNE$Y)  
+
+#2. K-Means clustering
+tSNE_kmeans=kmeans(scale(tSNE_plot_data), 3)  
+tSNE_plot_data[,k_group:=factor(tSNE_kmeans$cluster)]
+tSNE_plot_data[,`:=`(group=DT_meta_data[, group], ID=DT_meta_data[, ID])]
+
+tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
+  scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=c("K1", "K2", "K3"))+
+  scale_shape_manual(values=c(18,17,16), labels=group_names)+
+  geom_point(size=7, alpha=0.7)+
+  geom_text(aes(label=ID), nudge_x = 7, show.legend = F)+
+  
+  xlab("Variable 1")+
+  ylab("Variable 2")+
+  
+  theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
+  
+  annotate(geom="text", x=0, y=0, label="t-SNE", size=10, fontface=2, alpha=0.7)+
+  geom_segment(aes(x=-100, xend=100, y=0, yend=0), color="black", size=0.2)+
+  geom_segment(aes(x=0, xend=0, y=-100, yend=100), color="black", size=0.2)
+
+```
+
+**Figure x.** _Perplexity=3, theta=0.5._
+
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+ 
+#     + Expectation maximisation (EM)
+#         http://rstudio-pubs-static.s3.amazonaws.com/154174_78c021bc71ab42f8add0b2966938a3b8.html
+#     + Affinity propagation 
+#         https://cran.r-project.org/web/packages/apcluster/vignettes/apcluster.pdf
+#     + Mean-shift
+#         https://cran.r-project.org/web/packages/MeanShift/vignettes/MeanShift-clustering.html
+#     + Spectral clustering
+#         http://www.di.fc.ul.pt/~jpn/r/spectralclustering/spectralclustering.html
+#     + Hierarchical
+#         Done: 
+
+#Do common plot function -> call and present in grid.arrange
+
+
+```
+
 
 **Fig 7. Top 10 positive and negative loadings for the first -and second principal component**
 
@@ -885,11 +956,12 @@ heatmap_plot_function <- function(heatmap.data, col.height, column.labels, dendr
             dendrogram=dendrogram.setting,
             key=F,
             
-            col=bluered(100),
+            col=bluered(12),
             #labRow = row.labels,
-            labCol=column.labels,
+            labRow = " ",
+            labCol= column.labels,
             cexCol = 3,
-            cexRow = 2,
+            cexRow = 0.5,
             offsetRow = 0.1,
             offsetCol = 0.1,
             
@@ -902,11 +974,11 @@ heatmap_plot_function <- function(heatmap.data, col.height, column.labels, dendr
 
 #4. Calculating p-value for hierarchical clustering
 DT_hierarchical_clust <- data.matrix(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)])
-colnames(DT_hierarchical_clust) <- DT_meta_data[,ID]
-#DT_hierarchical_clust_boot <- pvclust(DT_hierarchical_clust, quiet=T)
+colnames(DT_hierarchical_clust) <- paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep="")
+DT_hierarchical_clust_boot <- pvclust(DT_hierarchical_clust, quiet=T)
 
 ###SECTION OUTPUT
-heatmap_plot_function(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[,as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))])
+heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))])
 
 # #Saving
 # jpeg('heatmap.jpg',
@@ -919,8 +991,139 @@ heatmap_plot_function(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_l
 
 ```
 
+**Fig 14.** _Figure reports a heat map with hierarchical clustering (indicated with dendrograms) using log-CPM values. Only significantly differentially expressed genes are included (and genes with NA symbols were removed)._ 
+
+## Multiscale bootstrap resampling of agglomerative hierarchical clustering
+
+**Fig 15. Multiscale bootstrap resampling of hierarchical clustering **
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=15, fig.height=7}
+plot(DT_hierarchical_clust_boot, print.pv=T, float=-0.02, col.pv=c("darkred", "darkblue"), cex.pv=0.9, font.pv=2, print.num=F, main="", sub="", xlab="")
+pvrect(DT_hierarchical_clust_boot)
+```
+
+**Fig 15.** _Figure reports hierarchical clustering using multiscale boostrap resampling with 1000 replicates. Numbers with red color are the approximately unbiased (AU) p-values while blue numbers represent bootstrap probability (BP). AU >95 and BP >70 are considered to be significant clusters. Red boxes indicate clusters with AU >95._
+
+**Fig 16. Unsupervised clustering using the 1000 genes with the highest F value (between all contrasts)**
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
+#1. Calculating F-statistica
+DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
+
+#2. Subsetting the 500 genes with the highest F-statistica
+DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1000, ProbeID]
+
+#3. Retrieving log-CPM values for the genes
+DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
+
+#4. Creating a dissimilarity structure
+DT_toptableF <- dist(t(DT_toptableF[,-(1:2)]))
+
+#5. Hierarchical clustering  
+DT_toptableF <- hclust(DT_toptableF)
+
+#6. Drawing the dendrogram
+myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)
+```
+
+**Fig 16.** _Figure reports a hierarchical clustering based on the 1000 genes with the highest F statistica (higher F statistica indicate a larger difference between contrasts)._
+
+***
+
+# Gene Set Testing
+
+##Molecular Signatures Database
+
+**Camera:** Performs a competitive gene set test which accounts for inter-gene correlations. Camera evaluates if a set of genes is highly ranked relative to other genes in terms of differential expression.  
+
+**Barcode plot:** This function plots two sets of genes in a ranked list of statistics. Statistics are ranked left to right from smallest to largest. Shaded region in the middle of the plot represents the ranked statistics while the vertical bars reports the positions of the specified subsets. The enrichment worm (line) shows the relative enrichment of the vertical bars in each part of the plot.  
+
+**Table 5. Significant and selected gene sets from MSigDB libraries** 
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
+#1. Defining function which takes a specified index and runs the 'camera' function and returns a data_table
+camera_function <- function(selected.index, type){
+  data_out <- camera(DT_voom_raw, index=selected.index, design=DT_design, contrast = DT_contrast[,1], inter.gene.cor = 0.01)
+  data_out <- data.table(GeneSet = rownames(data_out), Library=type, data_out)[,!"FDR"][,PValue:=format(PValue, digits=2, scientific=T)]
+  setkey(data_out, GeneSet)  
+  return(data_out)
+}
+
+# #2. Creating indices
+# #C2
+# load(url("http://bioinf.wehi.edu.au/software/MSigDB/mouse_c2_v5p1.rdata"))
+# geneset_index_c2 <- ids2indices(Mm.c2,id=rownames(DT_read_count_filtered)) 
+# #C5
+# load(url("http://bioinf.wehi.edu.au/software/MSigDB/mouse_c5_v5p2.rdata"))
+# geneset_index_c5 <- ids2indices(Mm.c5,id=rownames(DT_read_count_filtered)) 
+# #C7
+# load(url("http://bioinf.wehi.edu.au/software/MSigDB/mouse_c7_v5p2.rdata"))
+# geneset_index_c7 <- ids2indices(Mm.c7,id=rownames(DT_read_count_filtered)) 
+# #Hallmark
+# load(url("http://bioinf.wehi.edu.au/software/MSigDB/mouse_H_v5p2.rdata"))
+# geneset_index_hallmark <- ids2indices(Mm.H,id=rownames(DT_read_count_filtered)) 
+
+#Selected and significant gene set from each 'library'
+# c2_selected <- c()
+# 
+# c7_selected <- c()
+# 
+# hallmark_selected <- c()
+
+####SECTION OUTPUT
+# kable(rbind(camera_function(geneset_index_c2, "C2")[c2_selected], camera_function(geneset_index_c7, "C7")[c7_selected], camera_function(geneset_index_hallmark, "Hallmark")[hallmark_selected]), align = c("l", rep("c",4)), col.names = c("Gene set", "MSigDB","Genes (n)", "Direction", "P-value"))
+
+```
+
+**Fig 17. Barcode plot**
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
+#1. Bar code plot for M1-M2 up and down (from C2)
+
+# barcodeplot(DT_efit$t[,1], index = geneset_index_c2$COATES_MACROPHAGE_M1_VS_M2_UP, index2=geneset_index_c2$COATES_MACROPHAGE_M1_VS_M2_DN, main="M1/M2", cex.main=2)
+
+# jpeg('barcode_m1_m2.jpg',
+#      width=750,height=400, quality=1000)
+
+```
+
+```{r echo=F, warning=F, message=F, error=F}
+#1. Select genes in clusters -> rank on logFC and p-value -> for sci/naive comparison. 
+
+
+```
 
 
 
+#Summary
 
+**1. Annotation:** _Genes are annotated with gene name using their respective ENSEMBL ID._  
+**2. Transformation:** _Read count matrix is transformed into log-CPM using original library sizes._  
+**3. Filtering:** _Read count matrix is filtered using log-CPM values (>0 for at least 3 samples)._    
+**4. Normalization:** _Effective library sizes are calculated using the library sizes for the filtered read count matrix and the trimmed mean of M values (TMM) approach._    
+**5. Transformation:** _Filtered read count matrix is transformed into log-CPM matrix._    
+**6. PCA:** _Conducted for the 500 genes with highest variance. Proportional variance explained, MDS and loading plots are created._    
+**7. Design matrix:** _A dummy matrix which indicates which group each sample belongs._  
+**8. Contrast matrix:** _Contrasts are the group comparisons of interest._    
+**9. Voom transformation:** _Estimate precision weights for linear modelling to remove dependency between the variance and trhe mean._  
+**10. Linear modelling:** _Linear modelling using precision weights followed by an empirical Bayes moderation._  
+**11. Differentially expressed genes:** _Moderated t-statistics are used for determining significantly expressed genes for each contrast. Results are displayed with venn diagrams, mean-difference -and volcano plot and a summary table._  
+**12. Analysis/interpretation:** _Using hierarchical clustering, heatmap, gene ontology and KEGG enrichment analysis and gene set analysis the difference between the study groups is sought for._   
 
+# Bibliography
+
+**[1]** _R Core Team (2016). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL htts://www.R-project._
+
+**[2]** _Ritchie, M.E., Phipson, B., Wu, D., Hu, Y., Law, C.W., Shi, W., and Smyth, G.K. (2015). limma powers differential expression analyses for RNA-sequencing and microarray studies. Nucleic Acids Research 43(7), e47._
+
+**[3]** _Robinson MD, McCarthy DJ and Smyth GK (2010). edgeR: a Bioconductor package for differential expression analysis of digital gene expression data. Bioinformatics 26, 139-140_
+
+**[4]** _Law CW, Alhamdoosh M, Su S et al. RNA-seq analysis is easy as 1-2-3 with limma, Glimma and edgeR [version 1; referees: 3 approved]. F1000Research 2016, 5:1408._
+
+# Setup
+
+This analysis was conducted on:
+
+```{r echo=T, warning=F, message=F, error=F}
+sessionInfo()
+```
