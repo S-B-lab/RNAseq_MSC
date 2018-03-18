@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 # Executive Summary
 
-
+    + testa hypotes om lysosomen -> finns det gener som är relaterade till denna i heatmapen?
 
 
 
@@ -41,8 +41,6 @@ knitr::opts_chunk$set(echo = TRUE)
 # source("https://bioconductor.org/biocLite.R")
 # biocLite("edgeR")
 
-# source("https://bioconductor.org/biocLite.R")
-# biocLite("Mus.musculus")
 
 #install.packages("data.table")
 #install.packages("ggplot2")
@@ -113,7 +111,7 @@ DT_read_count <- fread("merged_gene_counts.txt", header=T)
 names(DT_read_count) <- c(names(DT_read_count)[1], do.call(rbind, lapply(names(DT_read_count)[2:length(names(DT_read_count))], function(col_name){substr(col_name, 7, 9)})))
 
 #2. Retrieving gene annotations (SYMBOL) based on ENSEMBL_ID
-gene_annotations <- data.table(select(Mus.musculus, keys=DT_read_count[,as.character(ENSEMBL_ID)], columns="SYMBOL", keytype = "ENSEMBL"))
+gene_annotations <- data.table(OrganismDbi::select(Mus.musculus, keys=DT_read_count[,as.character(ENSEMBL_ID)], columns="SYMBOL", keytype = "ENSEMBL"))
 
 #3. Removing duplicates in retrieved annotations
 gene_annotations <- gene_annotations[!duplicated(ENSEMBL)]
@@ -519,11 +517,135 @@ tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
 
 **Figure x.** _Perplexity=3, theta=0.5._
 
+#Dimensionality reduction
+    DONE
+    + Principal component analysis 
+    + Sammon's non-linear mapping
+    + Multidimensional scaling (MDS) 
+    + Linear discriminant analysis (LDA)
+    + Singular value decomposition
+    + t-SNE
+    + Factor analysis (maximum likelihood)
+    + MDA
+    + FDA
+    + Kernel PCA
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#1. Creating data for dimensionality reduction and clustering
+gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
+dim_data <- DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]
+
+#2.Plotting function for dimensionality reduction
+dimension_plot_function <- function(data_set, dim_reduction_type, textboolean=TRUE) {
+  dim_plot <- ggplot(data_set, aes(V1, V2, color=group, shape=group))+
+    # geom_segment(aes(x=-100, xend=100, y=0, yend=0), color="black", size=0.2)+
+    # geom_segment(aes(x=0, xend=0, y=-100, yend=100), color="black", size=0.2)+
+
+    geom_point(size=7, alpha=0.7)+
+    
+    theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
+    
+    scale_shape_manual(values=c(18,17,16), labels=group_names)+
+    scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+    
+    annotate(geom="text", x=0, y=0, label=dim_reduction_type, size=7, fontface=2, alpha=0.7)
+  
+    if(textboolean==T){dim_plot <- dim_plot + geom_text(aes(label=ID), nudge_x = 7, show.legend = F)}
+  
+  return(dim_plot)
+  
+}
+
+#A. SAMMON'S NON-LINEAR MAPPING 
+library(MASS)
+sammon_mapping_fit <- sammon(dist(as.matrix(t(dim_data))))
+sammon_mapping_plot_data <- data.table(sammon_mapping_fit$points)
+sammon_mapping_plot_data[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
+
+dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping")
+
+#B. Classical MDS
+MDS_classical_fit <- cmdscale(dist(t(dim_data)), eig=TRUE, k=2) 
+MDS_classical_fit <- data.table(MDS_classical_fit$points)
+MDS_classical_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
+
+dimension_plot_function(MDS_classical_fit, "Classical MDS")
+
+#C. Non-metric MDS
+MDS_nonmetric_fit <- isoMDS(dist(t(dim_data)), k=2) 
+MDS_nonmetric_fit <- data.table(MDS_nonmetric_fit$points)
+MDS_nonmetric_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
+
+dimension_plot_function(MDS_nonmetric_fit, "Nonmetric MDS")
+
+#D. Linear discriminant analysis
+da_data <- data.table(t(dim_data))
+da_data[, group:=DT_meta_data[, group]]
+#training model on 80 % of replicates
+train <- sample(1:22, round(22*0.6))
+da_train <- lda(formula=group~., data=da_data, subset=train)
+#predicting 
+plda <- predict(object=da_train, newdata = da_data[-train, ])
+plda <- data.table(group=plda$class, V1=plda$x[,1], V2=plda$x[,2])
+
+dimension_plot_function(plda, "Linear Discriminant Analysis", textboolean = F)
+
+#E. Flexible discriminant analysis
+library(mda)
+fda_data <- data.table(t(dim_data), group=DT_meta_data[, group])
+fda_fit <- fda(group~., data=fda_data)
+fda_plot_data  <- data.table(fda_fit$means[1:3,1:2], rownames(fda_fit$means))
+names(fda_plot_data) <- c("V1", "V2", "group")
+
+dimension_plot_function(fda_plot_data, "FDA", textboolean = F)
+
+#F. Mixture discriminant analysis (MDA)
+mda_data <- data.table(t(dim_data), group=DT_meta_data[,factor(group)])
+mda_fit  <- mda(group~., subclasses=c(8,6,8),data=mda_data)
+mda_plot_data <- data.table(mda_fit$means[, 1], mda_fit$means[, 2], c("invitro", "naive", "sci"))
+names(mda_plot_data) <- c("V1", "V2", "group")
+
+dimension_plot_function(mda_plot_data, "MDA", textboolean = F)
+
+# G. Singular value decomposition
+svd_data <- data.table(t(dim_data), group=DT_meta_data[, factor(group)])
+svd_fit <- svd(svd_data[,1:1000])
+svd_plot_data <- data.table(V1=svd_fit$u[, 1], V2=svd_fit$u[, 2], group=DT_meta_data[, factor(group)])
+
+dimension_plot_function(svd_plot_data, "SVD", textboolean = F)
+
+#Maximum likelihood factor analysis
+MLFA_fit <- factanal(dim_data, factors = 2, rotation = "promax")
+MLFA_plot_data <- data.table(V1=MLFA_fit$loadings[, 1], V2=MLFA_fit$loadings[, 2], DT_meta_data[, .(group)], DT_meta_data[, .(ID)])
+
+dimension_plot_function(MLFA_plot_data, "MLFA", textboolean = F)
+
+#Kernel PCA
+library(kernlab)
+kpca_fit <- kpca(t(dim_data))
+kpca_plot_data <- data.table(kpca_fit@pcv[,1], kpca_fit@pcv[,2], DT_meta_data[, group], DT_meta_data[, ID])
+names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
+
+dimension_plot_function(kpca_plot_data, "kPCA", textboolean = F)
+
+
+###SECTION OUTPUT
+plot_grid()
+
+```
+
+#Clustering algorithms
+
++ https://towardsdatascience.com/the-5-clustering-algorithms-data-scientists-need-to-know-a36d136ef68
++ https://www.analyticsvidhya.com/blog/2016/11/an-introduction-to-clustering-and-different-methods-of-clustering/
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
 #Clustering
+#-> kör på representativ dimensionality reduction (t ex t-SNE)
 
-#     + Expectation maximisation (EM)
+#http://wiki.math.yorku.ca/index.php/R:_Cluster_analysis
+
+#     + Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
 #         http://rstudio-pubs-static.s3.amazonaws.com/154174_78c021bc71ab42f8add0b2966938a3b8.html
 #     + Affinity propagation 
 #         https://cran.r-project.org/web/packages/apcluster/vignettes/apcluster.pdf
@@ -531,44 +653,17 @@ tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
 #         https://cran.r-project.org/web/packages/MeanShift/vignettes/MeanShift-clustering.html
 #     + Spectral clustering
 #         http://www.di.fc.ul.pt/~jpn/r/spectralclustering/spectralclustering.html
-#     + Hierarchical
-#         Done: 
-
-#Do common plot function -> call and present in grid.arrange
-
-#Dimensionality reduction
-
-    # + Principal component regression
-    # 
-    # + Partial least squares regression
-    # 
-    # + Sammon mapping
-    # 
-    # + Multidimensional scaling (MDS)
-    # 
-    # + Projection pursuit
-    # 
-    # + Linear discriminant analysis (LDA)
-    # 
-    # + Mixture discriminant analysis (MDA)
-    # 
-    # + Quadratic discriminant analysis (QDA)
-    # 
-    # + Flexible discriminant analysis (FDA)
-    # 
-    # + Partial least squares discriminant analysis 
-    # 
-    # + Latent dirichlet analysis
-    # 
-    # + Singular value decomposition
-    # 
-    # + Sammon mapping
-
-
-
-
+#     + KNN
+#     + Density-Based Spatial Clustering of Applications with Noise (DBSCAN)
+#     + Hierarchical, k-means, k-median
+          #re-organise
+#     + Support vector machine
 
 ```
+
+
+
+
 
 
 **Fig 7. Top 10 positive and negative loadings for the first -and second principal component**
@@ -936,7 +1031,7 @@ kable(top_20_dge_retreiver(DT_efit,10,0.05), align="c", col.names = rep(c("Gene"
 
 ```{r echo=F, warning=F, message=F, error=F,fig.width=17, fig.height=7}
 #1. Getting ENTREZ IDs for all genes in the filtered read count matrix 
-entrez_ID <- data.table(select(Mus.musculus, keys=DT_read_count_filtered[,as.character(ENSEMBL_ID)], columns="ENTREZID", keytype = "ENSEMBL"))
+entrez_ID <- data.table(OrganismDbi::select(Mus.musculus, keys=DT_read_count_filtered[,as.character(ENSEMBL_ID)], columns="ENTREZID", keytype = "ENSEMBL"))
 
 #2. Removing duplicates
 entrez_ID <- entrez_ID[!duplicated(ENSEMBL)]
