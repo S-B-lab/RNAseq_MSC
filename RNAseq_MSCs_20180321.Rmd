@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 # Executive Summary
 
-    + testa hypotes om lysosomen -> finns det gener som är relaterade till denna i heatmapen?
+#+ testa hypotes om lysosomen -> finns det gener som är relaterade till denna i heatmapen?
 
 
 
@@ -40,7 +40,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # source("https://bioconductor.org/biocLite.R")
 # biocLite("edgeR")
-
 
 #install.packages("data.table")
 #install.packages("ggplot2")
@@ -290,10 +289,10 @@ DT_principal_comp_raw <- prcomp(t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,
 DT_principal_comp_summary <- data.table(sd=summary(DT_principal_comp_raw)$sdev)
 
 #4. Subsetting data for plotting
-DT_principal_comp <- data.table(RH.index=factor(rownames(DT_principal_comp_raw$x)), DT_principal_comp_raw$x)
+DT_principal_comp <- data.table(ID=factor(rownames(DT_principal_comp_raw$x)), DT_principal_comp_raw$x)
 
 #5. Merging with meta_data 
-DT_principal_comp <- merge(DT_principal_comp, DT_meta_data[,c(1:3)], by.x="RH.index", by.y="ID")
+DT_principal_comp <- merge(DT_principal_comp, DT_meta_data[,c(1:3)], by="ID")
 
 #6. Calculating proportion of explained variance 
 DT_principal_comp_summary <- DT_principal_comp_summary[,var:=sd**2][,var.prop:=var/sum(var)][,var.prop.cumsum:=cumsum(var.prop)]
@@ -632,30 +631,16 @@ grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "SVD
 + https://towardsdatascience.com/the-5-clustering-algorithms-data-scientists-need-to-know-a36d136ef68
 + https://www.analyticsvidhya.com/blog/2016/11/an-introduction-to-clustering-and-different-methods-of-clustering/
 
+    + Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
+    + Mean-shift
+    + Spectral clustering
+    + KNN
+    + Affinity propagation
+    + K-means
+    + Support vector machine
+    + Hierarchical clustering
+    
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-#Clustering
-
-#     + Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
-#         http://rstudio-pubs-static.s3.amazonaws.com/154174_78c021bc71ab42f8add0b2966938a3b8.html
-#     + Affinity propagation 
-#         https://cran.r-project.org/web/packages/apcluster/vignettes/apcluster.pdf
-#     + Mean-shift
-#         https://cran.r-project.org/web/packages/MeanShift/vignettes/MeanShift-clustering.html
-#     + Spectral clustering
-#         http://www.di.fc.ul.pt/~jpn/r/spectralclustering/spectralclustering.html
-#     + KNN
-#     + Density-Based Spatial Clustering of Applications with Noise (DBSCAN)
-#     + Hierarchical
-#     + k-means
-#     + Support vector machine
-
-```
-
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-#Clustering biological replicates (PCA & tSNE method) -> grid.arrange one method for both dim.red.methods
-PCA_cluster <- DT_principal_comp[,c(1:4, 24)]
-tSNE_cluster <- tSNE_plot_data
-
 #1. Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
 #install.packages("EMCluster")
 library(EMCluster)
@@ -666,19 +651,140 @@ EM_cluster_function <- function(data_set){
   model <- emcluster(data_set, emobj, assign.class = TRUE)
   return(model$class)}
 
+EM_PCA  <- EM_cluster_function(DT_principal_comp[, 2:4])
+EM_tSNE <- EM_cluster_function(tSNE_plot_data[, 1:3])
+
+
+#2. Mean-Shift
+#install.packages("MeanShift")
+library(MeanShift)
+
+mean_shift_function <- function(data_set){
+  mean_shift_data  <- t(data_set) #Transpose
+  mean_shift_data <- mean_shift_data/apply(mean_shift_data, 1, sd) #Normalisation
+  candidate_bandwidths <- quantile(dist(t(data_set)), seq(0.01, 0.1, 0.01))
+  out <- lapply(candidate_bandwidths, function(band_width){bmsClustering(mean_shift_data, h=band_width)})
+  return(out)
+}
+
+#Not used: does not give more than one cluster (too few replicates) 
+
+#3. Spectral Clustering
+SC_PCA <- specc(as.matrix(DT_principal_comp[, 2:4]), centers=3)@.Data
+SC_tSNE <- specc(as.matrix(tSNE_plot_data[, 1:3]), centers=3)@.Data
+
+#4. K-Nearest Neighbour
+knn_function <- function(data_set){
+  knn_predict <- knn(data_set[train, !"group"], data_set[-train, !"group"], cl=data_set[train, group], k=3)  
+  out <- data.table(data_set[-train, !"group"], knn_predict)
+  return(out)
+}
+
+#5. Affinity propagation
+#install.packages("apcluster")
+library(apcluster)
+
+affinity_propagation_function <- function(dataset){
+  ap_fit <- apcluster(negDistMat(r=2), dataset[, names(dataset)%in%c("PC1", "PC2", "PC3", "V1", "V2", "V3"), with=F])
+  names(ap_fit@clusters[[1]]) <- NULL
+  cl_1 <- ap_fit@clusters[[1]] ; cl_2 <- ap_fit@clusters[[2]] ; cl_3 <- ap_fit@clusters[[3]]
+  out <- rbind(dataset[cl_1][, AP:=1], dataset[cl_2][, AP:=2], dataset[cl_3][, AP:=3])
+  out <- out[, .(ID, AP)]
+  return(out)
+}
+
+AP_PCA <- affinity_propagation_function(DT_principal_comp[, c(1:4, 24)])
+AP_tSNE <- affinity_propagation_function(tSNE_plot_data)
+
+#6. K-means clustering
+k_means_PCA <- kmeans(DT_principal_comp[, c(2:4)], centers=3, nstart = 20)$cluster
+k_means_tSNE <- kmeans(tSNE_plot_data[, 1:3], centers=3, nstart = 20)$cluster
+
+#7. Support vector machine
+library(e1071)
+svm_function <- function(dataset){
+  svm_fit <- svm(group~PC1+PC2+PC3, data=dataset[train])
+  svm_pred <- predict(svm_fit, dataset[-train])
+  return(svm_pred)
+}
+
+#Creating cluster datasets
+PCA_cluster_data <- cbind(DT_principal_comp[, c(1:4, 24)], EM=EM_PCA, SC=SC_PCA, KM=k_means_PCA)
+PCA_cluster_data <- merge(PCA_cluster_data, AP_PCA, by="ID")
+
+tSNE_cluster_data <- cbind(tSNE_plot_data, EM=EM_PCA, SC=SC_PCA, KM=k_means_PCA)
+tSNE_cluster_data <- merge(tSNE_cluster_data, AP_PCA, by="ID")
+
+#8A. Hierarchical clustering: 1000 genes with highest variance
+#draw with dendrogram and with circular packing (1 setup for 1000 most variable genes och 1 setup for highest F-value)
+
+#1. Selecting the 1000 genes with highest variance 
+gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
+#2. Creating a dissimilarity structure for the 100 genes with highest variance
+setkey(DT_lcpm, ENSEMBL_ID)
+DT_dist <- dist(t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]))
+#3. Hierarchicla clustering on on the dissimilarity structure
+DT_hclust <- hclust(DT_dist)
+#4. Plotting the hierarchical clustering (with labels and adding color by group)
+myplclust(DT_hclust, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)
+
+#8B. Circular packing (hiding the first level of hierarchy)
+
+#sudo apt-get -y install libcurl4-gnutls-dev
+#sudo apt-get -y install libssl-dev
+#install.packages("devtools")
+#sudo apt-get install libudunits2-dev
+#install.packages('udunits2', type = "source",
+#                    configure.args=c('--with-udunits2-lib=/usr/lib/R/library'))
+#devtools::install_github("thomasp85/ggraph", dependencies=TRUE)
+
+library(ggraph)
+library(igraph)
+library(viridis)
+library(Rcpp)
 
 
 
 
+#geom_node_circle
+#geom_node_point
 
+```
 
+**Fig 8. Hierarchical clustering of samples based on 1000 genes with highest variance** 
 
-###OUTPUT SECTION
-PCA_cluster[, EM:=EM_cluster_function(DT_principal_comp[,2:4])]
-
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
 
 
 ```
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
+#1. Calculating F-statistica
+DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
+
+#2. Subsetting the 500 genes with the highest F-statistica
+DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1000, ProbeID]
+
+#3. Retrieving log-CPM values for the genes
+DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
+
+#4. Creating a dissimilarity structure
+DT_toptableF <- dist(t(DT_toptableF[,-(1:2)]))
+
+#5. Hierarchical clustering  
+DT_toptableF <- hclust(DT_toptableF)
+
+#6. Drawing the dendrogram
+myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)
+```
+
+
+
+
+
+
+
+
 
 
 
@@ -740,34 +846,6 @@ grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings
 ```
 
 **Fig 7.** _Figure reports the top 10 positive and negative loadings for the first -and second principal component._ 
-
-**Fig 8. Hierarchical clustering of samples based on 1000 genes with highest variance** 
-
-```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
-#1. Selecting the 1000 genes with highest variance 
-gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
-
-#2. Creating a dissimilarity structure for the 100 genes with highest variance
-setkey(DT_lcpm, ENSEMBL_ID)
-DT_dist <- dist(t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]))
-
-#3. Hierarchicla clustering on on the dissimilarity structure
-DT_hclust <- hclust(DT_dist)
-
-#4. Plotting the hierarchical clustering (with labels and adding color by group)
-myplclust(DT_hclust, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)
-
-# #Saving
-# jpeg('PCA_hierarchical.jpg',
-#      width=1400,
-#      height=700,
-#      quality=1000)
-# myplclust(DT_hclust, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)
-# dev.off()
-
-```
-
-**Fig 8.** _Figure reports a dendrogram which illustrates hierarchical clustering of samples based on the 1000 genes with the highest variance._ 
 
 ***
 #Negative Binominal Dispersions by Weighted Likelihood Empirical Bayes  
@@ -1148,30 +1226,6 @@ pvrect(DT_hierarchical_clust_boot)
 ```
 
 **Fig 15.** _Figure reports hierarchical clustering using multiscale boostrap resampling with 1000 replicates. Numbers with red color are the approximately unbiased (AU) p-values while blue numbers represent bootstrap probability (BP). AU >95 and BP >70 are considered to be significant clusters. Red boxes indicate clusters with AU >95._
-
-**Fig 16. Unsupervised clustering using the 1000 genes with the highest F value (between all contrasts)**
-
-```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
-#1. Calculating F-statistica
-DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
-
-#2. Subsetting the 500 genes with the highest F-statistica
-DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1000, ProbeID]
-
-#3. Retrieving log-CPM values for the genes
-DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
-
-#4. Creating a dissimilarity structure
-DT_toptableF <- dist(t(DT_toptableF[,-(1:2)]))
-
-#5. Hierarchical clustering  
-DT_toptableF <- hclust(DT_toptableF)
-
-#6. Drawing the dendrogram
-myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)
-```
-
-**Fig 16.** _Figure reports a hierarchical clustering based on the 1000 genes with the highest F statistica (higher F statistica indicate a larger difference between contrasts)._
 
 ***
 
