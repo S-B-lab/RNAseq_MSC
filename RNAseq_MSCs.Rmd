@@ -62,6 +62,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages("xml2")
 # install.packages("caret")
 # install.packages("Rtsne")
+#install.packages("plot3D")
 
 #2. Attaching packages
 library(limma)
@@ -79,6 +80,7 @@ library(RColorBrewer)
 library(gplots)
 library(VennDiagram)
 library(ellipse)
+library(plot3D)
 library(ggrepel)
 library(rafalib)
 
@@ -322,8 +324,8 @@ DT_pca_sim <- DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)]
 #9. Boostrapping proportion of variance for each principal component   
 DT_pca_boot_conf <- boot(DT_pca_sim, function(dataset, b){summary(prcomp(t(dataset[b])))$importance[2,]},1000)
 
-#10. Extracting 95 % confidence intervals from bootstrapped data (10 first components)
-DT_pca_boot_conf_summary <- suppressWarnings(data.table(do.call(rbind, lapply(1:10, function(column){boot.ci(DT_pca_boot_conf, type="bca", index=column)$bca[(4:5)]}))))
+#10. Extracting 95 % confidence intervals from bootstrapped data (not for PC 12 since 0 throughout)
+DT_pca_boot_conf_summary <- suppressWarnings(data.table(do.call(rbind, lapply(1:11, function(column){boot.ci(DT_pca_boot_conf, type="bca", index=column)$bca[(4:5)]}))))
 names(DT_pca_boot_conf_summary) <- c("CI.Lower", "CI.Upper")
 
 #11. Converting bootstrapped data into plotable data 
@@ -331,40 +333,9 @@ DT_pca_boot_conf_plotdata <- data.table(DT_pca_boot_conf$t)[, 1:10]
 names(DT_pca_boot_conf_plotdata) <- names(DT_pca_boot_conf$t0)[1:10]
 DT_pca_boot_conf_plotdata <- suppressWarnings(melt.data.table(DT_pca_boot_conf_plotdata, variable.name = "PC.type"))
 
-#12. Plotting function for prop.var explained distribution
-pca_boot_conf_function <- function(data.set.conf){
-  pca_boot_conf_out <- ggplot(data.set.conf, aes(value, fill=PC.type))+
-  geom_rect(aes(xmin=DT_pca_boot_conf_summary[1,CI.Lower], xmax=DT_pca_boot_conf_summary[1,CI.Upper], ymin=0, ymax=100), fill="grey", alpha=0.05)+
-  geom_histogram(alpha=0.7, bins=40, position="identity")+
-  
-  scale_fill_manual(values=brewer.pal(10, "RdBu"))+
-  
-  theme(legend.title = element_blank(), legend.position = "right", axis.title = element_blank())
-  
-  if(data.set.conf[,PC.type][1]!="PC1"){
-    pca_boot_conf_out <- pca_boot_conf_out + scale_x_continuous(breaks=seq(0,0.05,0.01), limits = c(0,0.08))+scale_y_continuous(breaks=seq(0,1100,100), limits=c(0,1100))+annotate("text", x=0.005, y=1100, label="B", size=7.5, fontface=2)
-  } else if(data.set.conf[,PC.type][1]=="PC1"){
-    pca_boot_conf_out <- pca_boot_conf_out + scale_x_continuous(breaks=seq(0.9,1,0.01))+scale_y_continuous(breaks=seq(0,110,10), limits=c(0,110))+annotate("text", x=0.755, y=110, label="A", size=7.5, fontface=2)+annotate("text", x=0.8, y=110, label=paste("95 % CI:\n",toString(round(DT_pca_boot_conf_summary[1,CI.Lower],2)), "-", round(DT_pca_boot_conf_summary[1,CI.Upper],2)), size=4, fontface=2)
-  }
-
-  return(pca_boot_conf_out)
-}
-
-###SECTION OUTPUT
-grid.arrange(PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop",1),PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop.cumsum",11), ncol=2, bottom=textGrob("Principal component", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Proportion variance explained", gp=gpar(fontface="bold", fontsize=17), rot=90))
-
 ```
 
 **Fig 3.** _Figure reports the proportion variance explained by each principal component. Fig 3A reports the proportional variance explained by each component while Fig 3B reports the cumulative variance explained by the components. It is obvious that the first principal component explains the majority of the variance while the remaining components explain only a small portion of the variance._
-
-**Fig 4. Estimation of distribution of the variance explained by the principal components **
-
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
-# grid.arrange(pca_boot_conf_function(DT_pca_boot_conf_plotdata[PC.type=="PC1"]),pca_boot_conf_function(DT_pca_boot_conf_plotdata[PC.type!="PC1"]), ncol=2, bottom=textGrob("Proportional variance explained", gp=gpar(fontsize=17, fontface="bold")),left=textGrob("Count (n)", gp=gpar(fontface="bold", fontsize=17), rot=90))
-
-```
-
-**Fig 4.** _Figure reports the distribution of bootstrapped proportion of variance explained by each principal component. Bootstrap is conducted using the 500 genes with the highest variance. Fig 4A reports the distribution for the first principal component while Fig 4B reports the distribution for the remaining eleven components (due to differences in magnitude). Shaded region in Fig 4A represents a bootstrapped nonparametric 95 % confidence interval. The histograms show narrow distributions which confirms the observations and conclusion in Fig 3._
 
 **Table 2. Upper and lower bounds (95 % confidence interval) for the proportion of variance explained by principal component 1 to 11 **
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
@@ -373,152 +344,8 @@ kable(data.table("bound"=c("Upper bound:", "Lower bound:"),t(round(DT_pca_boot_c
 
 ***
 
-**Fig 5. Multidimensional scaling plot of the 500 genes with the highest variance**
-
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-#1. Creating data for ellipses
-ellipse_data <- suppressWarnings(do.call(rbind,lapply(split(DT_principal_comp, DT_principal_comp[,group]), function(group.object){data.table(group=group.object[,group],with(group.object, ellipse::ellipse(cor(PC1,PC2), scale = c(sd(PC1), sd(PC2)), centre=c(mean(PC1), mean(PC2)), t=1.5)))})))
-
-#2. Creating group_names to avoid repetition in plot
-group_names <- c("MSC[in vitro]", "MSC[Naive]", "MSC[SCI]")
-
-#3. Creating MDS plot
-PCA_plot_mds <- ggplot(DT_principal_comp, aes(PC1, PC2))+
-  geom_segment(aes(x=-100, xend=100, y=0, yend=0), size=0.2)+
-  geom_segment(aes(x=0, xend=0, y=-15, yend=20), size=0.2)+
-  geom_polygon(ellipse_data, mapping=aes(x,y, fill=group), alpha=0.2, show.legend = F)+
-  geom_point(aes(color=group, shape=group), size=7, alpha=0.8)+
-
-  xlab("Principal component 1")+
-  ylab("Principal component 2")+
-  
-  scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
-  scale_shape_manual(values=c(18,17,16), labels=group_names)+
-  scale_fill_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
-  scale_x_continuous(breaks=seq(-100, 150, 20))+
-  scale_y_continuous(breaks=seq(-20, 30, 2))+
-  
-  theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"), axis.line = element_blank(), axis.ticks = element_blank())+
-  
-  annotate("text", x=-30, y=13, label="MSC[Naive]", size=6, fontface=2)+
-  annotate("text", x=-30, y=-8, label="MSC[SCI]", size=6, fontface=2)+
-  annotate("text", x=100, y=6, label="MSC[in vitro]", size=6, fontface=2)+
-  
-  annotate(geom="text", x=0, y=0, label="PCA", size=10, fontface=2, alpha=0.7)
-
-###SECTION OUTPUT
-PCA_plot_mds
-# ggsave("PCA_plot_mds.jpg", PCA_plot_mds, dpi=1000, height = 7, width=14)
-
-```
-
-**Fig 5.** _Figure reports the distribution of the samples along the first and second principal component. Study groups are indicated with ellipses. Ellipses represent a 95 % confidence interval based on the samples within each group. There is a distinct separation between the four study groups. Uninjured samples separate from the three other study groups which contain animals exposed to SCI. The syngeneic and allogenic groups do form an "venn diagram like" pattern in relation to the injury only group in the sense that they both have one animal which overlaps with the injury control study group._
-
-# K-means clustering of boostrapped principal components 
-
-**Fig 6. K means clustering (4 groups) of 1000 boostrap replicates for the first -and second principal component for the 500 genes with the highest variance** 
-
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-#1. Bootstrap function: boostrap from top 500 genes with highest variance and calculate PC1 and PC2 
-pca_simulation_function <- function(dataset, run){
-  sim_data <- dataset[sample(1:500, replace = T)]
-  sim_prcomp_raw <- prcomp(t(sim_data))$x[,(1:2)]
-  sim_prcomp <- data.table(ID=rownames(sim_prcomp_raw),sim_prcomp_raw)
-  return(sim_prcomp)
-}
-
-#2. Calling boostrap function, creating data table and merging with group name 
-DT_pca_boot <- do.call(rbind, lapply(1:1000, function(dataset,i){pca_simulation_function(DT_pca_sim,i)}))
-DT_pca_boot <- merge(DT_pca_boot, DT_meta_data[,.(ID, group)], by="ID")
-
-#3. Adding K-means clustering
-DT_pca_boot_kmeans <- kmeans(DT_pca_boot[,c(2,3)], 3, nstart=20)
-DT_pca_boot <- DT_pca_boot[,k.mean.cluster:=factor(DT_pca_boot_kmeans$cluster)]
-
-#4. K means clustering on original samples (raw data, not boostrapped)
-DT_pca_kmean_sample <- DT_principal_comp[,.(PC1, PC2, RH.index, group)]
-DT_pca_kmean_sample <- DT_pca_kmean_sample[,k.mean.group:=factor(kmeans(DT_principal_comp[,.(PC1,PC2)], 4, nstart=20)$cluster)]
-
-#5. Creating ellipse data for bootstraped PCA data
-ellipse_data_boot <- do.call(rbind,lapply(split(DT_pca_boot, DT_pca_boot[,k.mean.cluster]), function(cluster){data.table(cluster=rep(unique(cluster[,k.mean.cluster]),100), with(cluster, (ellipse::ellipse(cor(PC1,PC2), scale = c(sd(PC1), sd(PC2)), centre=c(mean(PC1), mean(PC2))))))}))
-
-#6. Plotting function for bootstrapped PCA
-color_palette <- brewer.pal(11, "RdBu")[c(1,2,10)]
-
-PCA_sim_plot_function <- function(dataset, group.var){
-
-  PCA_sim_plot_out <- ggplot(dataset, aes(PC1, PC2))+
-  geom_segment(aes(x=-100, xend=100, y=0, yend=0), size=0.2)+
-  geom_segment(aes(x=0, xend=0, y=-25, yend=25), size=0.2)+
-  geom_polygon(ellipse_data_boot, mapping=aes(x,y, fill=cluster), alpha=0.2, show.legend = F)+
-  geom_jitter(aes(color=get(group.var)), alpha=0.2, size=2, width=1.5, show.legend = F)+
-  geom_point(DT_pca_kmean_sample, mapping=aes(PC1, PC2, shape=group), size=5)+
-  
-  xlab("Principal component 1")+
-  ylab("Principal component 2")+
-
-  scale_color_manual(values=color_palette)+
-  scale_fill_manual(values=color_palette)+
-  scale_shape_manual(values=c(18,17,16), labels=group_names)+
-  scale_x_continuous(breaks=seq(-100, 150, 20))+
-  scale_y_continuous(breaks=seq(-30, 35, 5))+
-  
-  theme(legend.title = element_blank(), legend.position = "bottom", legend.text = element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"), axis.line = element_blank(), axis.ticks = element_blank())+
-    
-  annotate("text", x=-90, y=20, label="K1", fontface=4, size=6)+
-  annotate("text", x=-35, y=20, label="K2", fontface=4, size=6)+
-  annotate("text", x=100, y=5, label="K3", fontface=4, size=6)+
-    
-  annotate(geom="text", x=0, y=0, label="PCA", fontface=2, size=10, alpha=0.7)
-
-  return(PCA_sim_plot_out)
-  
-}
-
-###SECTION OUTPUT
-PCA_sim_plot_function(DT_pca_boot, "k.mean.cluster")
-# ggsave("PCA_plot_boot.jpg",PCA_sim_plot_function(DT_pca_boot, "k.mean.cluster"), dpi=1000, width=14, height=7)
-
-```
-
-**Fig 6.** _Figure reports the first and second principal component for 1000 bootstrapped replicates per sample based on the 500 genes with highest variance. K means clustering with 4 groups and 20 starts was conducted on both the bootstrapped data. Ellipses are centered around the mean value of the botstrapped values for each cluster and represent a 95 % confidence interval for the data in each cluster. The clustering confirms the hypothesis postulated in Fig 5._ 
-
-# t-distributed Stochastic Neighbour Embedding
-
-*Explanation
-
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-#1. Dimensionality reduction using t-SNE 
-DT_tSNE_raw <- t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)])
-DT_tSNE <-  Rtsne(as.matrix(DT_tSNE_raw), check_duplicates=FALSE, pca=TRUE, perplexity=3, theta=0.5, dims=2)
-tSNE_plot_data <- data.table(DT_tSNE$Y)  
-
-#2. K-Means clustering
-tSNE_kmeans=kmeans(scale(tSNE_plot_data), 3)  
-tSNE_plot_data[,k_group:=factor(tSNE_kmeans$cluster)]
-tSNE_plot_data[,`:=`(group=DT_meta_data[, group], ID=DT_meta_data[, ID])]
-
-tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
-  scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=c("K1", "K2", "K3"))+
-  scale_shape_manual(values=c(18,17,16), labels=group_names)+
-  geom_point(size=7, alpha=0.7)+
-  geom_text(aes(label=ID), nudge_x = 7, show.legend = F)+
-  
-  xlab("Variable 1")+
-  ylab("Variable 2")+
-  
-  theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
-  
-  annotate(geom="text", x=0, y=0, label="t-SNE", size=10, fontface=2, alpha=0.7)+
-  geom_segment(aes(x=-100, xend=100, y=0, yend=0), color="black", size=0.2)+
-  geom_segment(aes(x=0, xend=0, y=-100, yend=100), color="black", size=0.2)
-
-```
-
-**Figure x.** _Perplexity=3, theta=0.5._
-
 #Dimensionality reduction
-    DONE
+
     + Principal component analysis 
     + Sammon's non-linear mapping
     + Multidimensional scaling (MDS) 
@@ -530,27 +357,203 @@ tSNE_plot <- ggplot(tSNE_plot_data, aes(V1, V2, color=k_group, shape=group))+
     + FDA
     + Kernel PCA
 
+**Fig 5. Multidimensional scaling plot of the 500 genes with the highest variance**
+
+```{r echo=F, warning=F, message=F, error=F}
+#t-SNE - Calculation of data 
+DT_tSNE_raw <- t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)])
+DT_tSNE <-  Rtsne(as.matrix(DT_tSNE_raw), check_duplicates=FALSE, pca=TRUE, perplexity=3, theta=0.5, dims=3)
+tSNE_plot_data <- data.table(DT_tSNE$Y, group=DT_meta_data[, group], ID=DT_meta_data[, ID])
+
+```
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#1. Creating group_names to avoid repetition in plot
+group_names <- c("MSC[in vitro]", "MSC[Naive]", "MSC[SCI]")
+
+#2. Creating ellipse data
+#PCA
+ellipse_data_PCA <- suppressWarnings(do.call(rbind,lapply(split(DT_principal_comp, DT_principal_comp[,group]), function(group.object){data.table(group=group.object[,group], with(group.object, ellipse::ellipse(cor(PC1,PC2), scale = c(sd(PC1), sd(PC2)), centre=c(mean(PC1), mean(PC2)), t=1.5)))})))
+#tSNE
+ellipse_data_tSNE <- suppressWarnings(do.call(rbind,lapply(split(tSNE_plot_data, tSNE_plot_data[,group]), function(group.object){data.table(group=group.object[,group], with(group.object, ellipse::ellipse(cor(V1,V2), scale = c(sd(V1), sd(V2)), centre=c(mean(V1), mean(V2)), t=1.5)))})))
+
+#3. 2D plot PCA
+PCA_plot <- ggplot(DT_principal_comp, aes(PC1, PC2))+
+  geom_segment(aes(x=-100, xend=150, y=0, yend=0), size=0.2)+
+  geom_segment(aes(x=0, xend=0, y=-15, yend=20), size=0.2)+
+  geom_polygon(ellipse_data_PCA, mapping=aes(x, y, fill=group), alpha=0.2, show.legend = F)+
+  geom_point(aes(color=group, shape=group), size=7, alpha=0.8)+
+
+  xlab("PC1")+
+  ylab("PC2")+
+  
+  scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+  scale_shape_manual(values=c(18,17,16), labels=group_names)+
+  scale_fill_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+  scale_x_continuous(breaks=seq(-100, 150, 20))+
+  scale_y_continuous(breaks=seq(-20, 30, 2))+
+  
+  theme(legend.title = element_blank(), legend.position = "none", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"), axis.line = element_blank(), axis.ticks = element_blank())+
+  
+  annotate("text", x=-30, y=10, label="MSC[Naive]", size=6, fontface=2)+
+  annotate("text", x=-30, y=-8, label="MSC[SCI]", size=6, fontface=2)+
+  annotate("text", x=120, y=6, label="MSC[in vitro]", size=6, fontface=2)+
+  
+  annotate(geom="text", x=0, y=0, label="PCA", size=10, fontface=2, alpha=0.7)
+
+#3. 2D plot tSNE
+tSNE_plot <- function(legend_status){
+  plot_out <- ggplot(tSNE_plot_data, aes(V1, V2))+
+  geom_segment(aes(x=-70, xend=70, y=0, yend=0), size=0.2)+
+  geom_segment(aes(x=0, xend=0, y=-80, yend=70), size=0.2)+
+  geom_polygon(ellipse_data_tSNE, mapping=aes(x, y, fill=group), alpha=0.2, show.legend = F)+
+  geom_point(aes(color=group, shape=group), size=7, alpha=0.8)+
+
+  xlab("V1")+
+  ylab("V2")+
+  
+  scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+  scale_shape_manual(values=c(18,17,16), labels=group_names)+
+  scale_fill_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
+  scale_x_continuous(breaks=seq(-100, 150, 10))+
+  scale_y_continuous(breaks=seq(-100, 100, 10))+
+  
+  theme(legend.title = element_blank(), legend.position = legend_status, legend.text=element_text(size=20), legend.justification = "center", axis.title = element_text(size=22, face="bold"), axis.line = element_blank(), axis.ticks = element_blank())+
+  
+  annotate("text", x=50, y=35, label="MSC[Naive]", size=6, fontface=2)+
+  annotate("text", x=10, y=70, label="MSC[SCI]", size=6, fontface=2)+
+  annotate("text", x=-30, y=-50, label="MSC[in vitro]", size=6, fontface=2)+
+  
+  annotate(geom="text", x=0, y=0, label="tSNE", size=10, fontface=2, alpha=0.7)
+  
+  return(plot_out)
+  
+}
+
+#3. Fancy 3D plot (for PCA & t-SNE)
+scatter3D_fancy <- function(x, y, z,..., colvar = z)
+  {
+   panelfirst <- function(pmat) {
+      XY <- trans3D(x, y, z = rep(min(z), length(z)), pmat = pmat)
+      scatter2D(XY$x, XY$y, colvar = colvar, pch = ".", 
+              cex = 3, add = TRUE, colkey = F, col = color_palette)
+   
+      XY <- trans3D(x = rep(min(x), length(x)), y, z, pmat = pmat)
+      scatter2D(XY$x, XY$y, colvar = colvar, pch = ".", 
+              cex = 3, add = TRUE, colkey = F, col = color_palette)
+  }
+  scatter3D(x, y, z, ..., colvar = colvar, panel.first=panelfirst,
+    colkey = F) 
+}
+
+```
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#Plotting 2D dimension reduction graphs (PCA, tSNE)
+PCA_tSNE_legend <- get_legend(tSNE_plot("bottom"))
+grid.arrange(arrangeGrob(PCA_plot, tSNE_plot("none"), ncol=2), PCA_tSNE_legend, nrow=2, heights=c(5,1))
+
+```
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+color_palette <- brewer.pal(11, "RdBu")[c(1,2,10)]
+
+#3D PCA (biological replicates)
+scatter3D_fancy(DT_principal_comp$PC1, DT_principal_comp$PC2, DT_principal_comp$PC3, colvar = as.integer(DT_principal_comp$group), 
+            pch=19, 
+            col = color_palette, 
+            alpha=0.7, 
+            xlab="PC1",
+            ylab="PC2",
+            zlab="PC3",
+            phi=20,
+            main = "PCA",
+            cex=2)
+
+DT_tSNE_raw <- t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)])
+DT_tSNE <-  Rtsne(as.matrix(DT_tSNE_raw), check_duplicates=FALSE, pca=TRUE, perplexity=3, theta=0, dims=3)
+tSNE_plot_data <- data.table(DT_tSNE$Y, group=DT_meta_data[, group], ID=DT_meta_data[, ID])
+
+#3D t-SNE (biological replicates)
+scatter3D_fancy(tSNE_plot_data$V1, tSNE_plot_data$V2, tSNE_plot_data$V3, 
+            colvar = as.integer(tSNE_plot_data$group), 
+            pch=19, 
+            col = color_palette, 
+            alpha=0.7, 
+            xlab="V1",
+            ylab="V2",
+            zlab="V3",
+            phi=20,
+            main = "t-SNE",
+            cex=2)
+
+```
+
+```{r echo=F, warning=F, message=F, error=F}
+#1. PCA bootstrap function: boostrap from top 500 genes with highest variance and calculate PC1 and PC2 
+pca_simulation_function <- function(dataset, run){
+  sim_data <- dataset[sample(1:500, replace = T)]
+  sim_prcomp_raw <- prcomp(t(sim_data))$x[,(1:3)]
+  sim_prcomp <- data.table(ID=rownames(sim_prcomp_raw), sim_prcomp_raw)
+  return(sim_prcomp)
+}
+
+#2. Calling boostrap function, creating data table and merging with group name 
+DT_pca_boot <- do.call(rbind, lapply(1:1000, function(dataset,i){pca_simulation_function(DT_pca_sim,i)}))
+DT_pca_boot[, "ID"] <- factor(DT_pca_boot[,ID])
+DT_pca_boot <- merge(DT_pca_boot, DT_meta_data[,.(ID, group)], by="ID")
+
+#3D PCA bootstrapped (with 3D-coordinates)
+scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3, 
+            colvar=as.integer(DT_pca_boot$group), 
+            pch=19, 
+            col=color_palette, 
+            alpha=0.02, 
+            xlab="PC1",
+            ylab="PC2",
+            zlab="PC3",
+            phi=20,
+            main="PCA",
+            cex=2,
+            theta=30)
+
+#3D PCA bootstrapped (withou 3D-coordinates)
+scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3, 
+            colvar=as.integer(DT_pca_boot$group), 
+            pch=19, 
+            col=color_palette, 
+            alpha=0.02, 
+            xlab="PC1",
+            ylab="PC2",
+            zlab="PC3",
+            phi=20,
+            main="PCA",
+            cex=0,
+            theta=30)
+
+```
+
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
 #1. Creating data for dimensionality reduction and clustering
 gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
 dim_data <- DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]
 
 #2.Plotting function for dimensionality reduction
-dimension_plot_function <- function(data_set, dim_reduction_type, textboolean=TRUE) {
+dimension_plot_function <- function(data_set, dim_reduction_type, legend.position="none", textboolean=TRUE) {
   dim_plot <- ggplot(data_set, aes(V1, V2, color=group, shape=group))+
-    # geom_segment(aes(x=-100, xend=100, y=0, yend=0), color="black", size=0.2)+
-    # geom_segment(aes(x=0, xend=0, y=-100, yend=100), color="black", size=0.2)+
+    geom_segment(aes(x=data_set[, min(V1)]*1.2, xend=data_set[, max(V1)]*1.2, y=data_set[, mean(V2)], yend=data_set[, mean(V2)]), color="black", size=0.1, alpha=0.5)+
+    geom_segment(aes(x=data_set[, mean(V2)], xend=data_set[, mean(V2)], y=data_set[, min(V2)]*1.2, yend=data_set[, max(V2)]*1.2), color="black", size=0.1, alpha=0.5)+
 
     geom_point(size=7, alpha=0.7)+
     
-    theme(legend.title = element_blank(), legend.position = "bottom", legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
+    theme(legend.title = element_blank(), legend.position = legend.position, legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
     
     scale_shape_manual(values=c(18,17,16), labels=group_names)+
     scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
     
-    annotate(geom="text", x=0, y=0, label=dim_reduction_type, size=7, fontface=2, alpha=0.7)
+    annotate(geom="text", x=data_set[, mean(V1)], y=data_set[, mean(V2)], label=dim_reduction_type, size=7, fontface=2, alpha=0.7)
   
-    if(textboolean==T){dim_plot <- dim_plot + geom_text(aes(label=ID), nudge_x = 7, show.legend = F)}
+    if(textboolean==T){dim_plot <- dim_plot + geom_text(aes(label=ID), show.legend = F)}
   
   return(dim_plot)
   
@@ -562,21 +565,15 @@ sammon_mapping_fit <- sammon(dist(as.matrix(t(dim_data))))
 sammon_mapping_plot_data <- data.table(sammon_mapping_fit$points)
 sammon_mapping_plot_data[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
 
-dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping")
-
 #B. Classical MDS
 MDS_classical_fit <- cmdscale(dist(t(dim_data)), eig=TRUE, k=2) 
 MDS_classical_fit <- data.table(MDS_classical_fit$points)
 MDS_classical_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
 
-dimension_plot_function(MDS_classical_fit, "Classical MDS")
-
 #C. Non-metric MDS
 MDS_nonmetric_fit <- isoMDS(dist(t(dim_data)), k=2) 
 MDS_nonmetric_fit <- data.table(MDS_nonmetric_fit$points)
 MDS_nonmetric_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
-
-dimension_plot_function(MDS_nonmetric_fit, "Nonmetric MDS")
 
 #D. Linear discriminant analysis
 da_data <- data.table(t(dim_data))
@@ -588,16 +585,11 @@ da_train <- lda(formula=group~., data=da_data, subset=train)
 plda <- predict(object=da_train, newdata = da_data[-train, ])
 plda <- data.table(group=plda$class, V1=plda$x[,1], V2=plda$x[,2])
 
-dimension_plot_function(plda, "Linear Discriminant Analysis", textboolean = F)
-
 #E. Flexible discriminant analysis
 library(mda)
 fda_data <- data.table(t(dim_data), group=DT_meta_data[, group])
 fda_fit <- fda(group~., data=fda_data)
-fda_plot_data  <- data.table(fda_fit$means[1:3,1:2], rownames(fda_fit$means))
-names(fda_plot_data) <- c("V1", "V2", "group")
-
-dimension_plot_function(fda_plot_data, "FDA", textboolean = F)
+fda_plot_data  <- data.table(fda_fit$means[, 1], fda_fit$means[, 2], group=rownames(fda_fit$means))
 
 #F. Mixture discriminant analysis (MDA)
 mda_data <- data.table(t(dim_data), group=DT_meta_data[,factor(group)])
@@ -605,32 +597,33 @@ mda_fit  <- mda(group~., subclasses=c(8,6,8),data=mda_data)
 mda_plot_data <- data.table(mda_fit$means[, 1], mda_fit$means[, 2], c("invitro", "naive", "sci"))
 names(mda_plot_data) <- c("V1", "V2", "group")
 
-dimension_plot_function(mda_plot_data, "MDA", textboolean = F)
-
-# G. Singular value decomposition
+# G. Singular value decomposition (SVD)
 svd_data <- data.table(t(dim_data), group=DT_meta_data[, factor(group)])
 svd_fit <- svd(svd_data[,1:1000])
-svd_plot_data <- data.table(V1=svd_fit$u[, 1], V2=svd_fit$u[, 2], group=DT_meta_data[, factor(group)])
+svd_plot_data <- data.table(V1=svd_fit$u[, 1], V2=svd_fit$u[, 2], group=DT_meta_data[, factor(group)], ID=DT_meta_data[, ID])
 
-dimension_plot_function(svd_plot_data, "SVD", textboolean = F)
-
-#Maximum likelihood factor analysis
+#H. Maximum likelihood factor analysis
 MLFA_fit <- factanal(dim_data, factors = 2, rotation = "promax")
 MLFA_plot_data <- data.table(V1=MLFA_fit$loadings[, 1], V2=MLFA_fit$loadings[, 2], DT_meta_data[, .(group)], DT_meta_data[, .(ID)])
 
-dimension_plot_function(MLFA_plot_data, "MLFA", textboolean = F)
-
-#Kernel PCA
+#I. Kernel PCA
 library(kernlab)
-kpca_fit <- kpca(t(dim_data))
+kpca_fit <- kpca(t(dim_data), kernel="laplacedot")
 kpca_plot_data <- data.table(kpca_fit@pcv[,1], kpca_fit@pcv[,2], DT_meta_data[, group], DT_meta_data[, ID])
 names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
 
-dimension_plot_function(kpca_plot_data, "kPCA", textboolean = F)
-
-
 ###SECTION OUTPUT
-plot_grid()
+dimension_legend <- get_legend(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom"))
+
+grid.arrange(arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), dimension_plot_function(MDS_classical_fit, "Classical MDS"), ncol=2))
+
+grid.arrange(arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Nonmetric MDS"), dimension_plot_function(tSNE_plot_data, "t-SNE"), ncol=2))
+
+grid.arrange(arrangeGrob(dimension_plot_function(mda_plot_data, "MDA", textboolean = F), dimension_plot_function(fda_plot_data, "FDA", textboolean = F), ncol=2))
+
+grid.arrange(arrangeGrob(dimension_plot_function(plda, "LDA", textboolean = F), dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), ncol=2))
+
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "SVD", textboolean = T), dimension_plot_function(MLFA_plot_data, "MLFA", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(10,1)))
 
 ```
 
@@ -641,9 +634,6 @@ plot_grid()
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
 #Clustering
-#-> kör på representativ dimensionality reduction (t ex t-SNE)
-
-#http://wiki.math.yorku.ca/index.php/R:_Cluster_analysis
 
 #     + Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
 #         http://rstudio-pubs-static.s3.amazonaws.com/154174_78c021bc71ab42f8add0b2966938a3b8.html
@@ -655,12 +645,40 @@ plot_grid()
 #         http://www.di.fc.ul.pt/~jpn/r/spectralclustering/spectralclustering.html
 #     + KNN
 #     + Density-Based Spatial Clustering of Applications with Noise (DBSCAN)
-#     + Hierarchical, k-means, k-median
-          #re-organise
+#     + Hierarchical
+#     + k-means
 #     + Support vector machine
 
 ```
 
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+#Clustering biological replicates (PCA & tSNE method) -> grid.arrange one method for both dim.red.methods
+PCA_cluster <- DT_principal_comp[,c(1:4, 24)]
+tSNE_cluster <- tSNE_plot_data
+
+#1. Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
+#install.packages("EMCluster")
+library(EMCluster)
+
+EM_cluster_function <- function(data_set){
+  emobj <- simple.init(data_set, nclass=3)
+  emobj <- shortemcluster(data_set, emobj)
+  model <- emcluster(data_set, emobj, assign.class = TRUE)
+  return(model$class)}
+
+
+
+
+
+
+
+
+###OUTPUT SECTION
+PCA_cluster[, EM:=EM_cluster_function(DT_principal_comp[,2:4])]
+
+
+
+```
 
 
 
