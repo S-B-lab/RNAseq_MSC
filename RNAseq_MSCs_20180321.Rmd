@@ -338,7 +338,7 @@ DT_pca_boot_conf_plotdata <- suppressWarnings(melt.data.table(DT_pca_boot_conf_p
 
 **Table 2. Upper and lower bounds (95 % confidence interval) for the proportion of variance explained by principal component 1 to 11 **
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
-kable(data.table("bound"=c("Upper bound:", "Lower bound:"),t(round(DT_pca_boot_conf_summary,3))), col.names = c(" ", paste(rep("PC", 10), 1:10, sep="")), align="c")
+#kable(data.table("bound"=c("Upper bound:", "Lower bound:"),t(round(DT_pca_boot_conf_summary,3))), col.names = c(" ", paste(rep("PC", 10), 1:10, sep="")), align="c")
 ```
 
 ***
@@ -538,24 +538,30 @@ gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
 dim_data <- DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]
 
 #2.Plotting function for dimensionality reduction
-dimension_plot_function <- function(data_set, dim_reduction_type, legend.position="none", textboolean=TRUE) {
-  dim_plot <- ggplot(data_set, aes(V1, V2, color=group, shape=group))+
+dimension_plot_function <- function(data_set, dim_reduction_type, legend.position="none", textboolean=TRUE, cluster_type="none") {
+  if(cluster_type!="none"){data_set <- data_set[!is.na(get(cluster_type))]}
+  
+  dim_plot <- ggplot(data_set, aes(V1, V2))+
     geom_segment(aes(x=data_set[, min(V1)]*1.2, xend=data_set[, max(V1)]*1.2, y=data_set[, mean(V2)], yend=data_set[, mean(V2)]), color="black", size=0.1, alpha=0.5)+
     geom_segment(aes(x=data_set[, mean(V2)], xend=data_set[, mean(V2)], y=data_set[, min(V2)]*1.2, yend=data_set[, max(V2)]*1.2), color="black", size=0.1, alpha=0.5)+
-
-    geom_point(size=7, alpha=0.7)+
     
     theme(legend.title = element_blank(), legend.position = legend.position, legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
     
     scale_shape_manual(values=c(18,17,16), labels=group_names)+
-    scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
     
     annotate(geom="text", x=data_set[, mean(V1)], y=data_set[, mean(V2)], label=dim_reduction_type, size=7, fontface=2, alpha=0.7)
   
-    if(textboolean==T){dim_plot <- dim_plot + geom_text(aes(label=ID), show.legend = F)}
+    if(cluster_type=="none"){dim_plot <- dim_plot + 
+      geom_point(aes(color=group, shape=group), size=7, alpha=0.7)+
+      scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)}
   
+    if(cluster_type!="none"){dim_plot <- dim_plot + 
+      geom_point(aes(color=factor(get(cluster_type)), shape=group), size=10, alpha=0.7)+
+      scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=c("C1", "C2", "C3"))}
+    
+    if(textboolean==T){dim_plot <- dim_plot + geom_text(aes(label=ID), show.legend = F, color="black", size=3)}
+   
   return(dim_plot)
-  
 }
 
 #A. SAMMON'S NON-LINEAR MAPPING 
@@ -574,15 +580,15 @@ MDS_nonmetric_fit <- isoMDS(dist(t(dim_data)), k=2)
 MDS_nonmetric_fit <- data.table(MDS_nonmetric_fit$points)
 MDS_nonmetric_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
 
-#D. Linear discriminant analysis
-da_data <- data.table(t(dim_data))
-da_data[, group:=DT_meta_data[, group]]
-#training model on 80 % of replicates
-train <- sample(1:22, round(22*0.6))
-da_train <- lda(formula=group~., data=da_data, subset=train)
-#predicting 
-plda <- predict(object=da_train, newdata = da_data[-train, ])
-plda <- data.table(group=plda$class, V1=plda$x[,1], V2=plda$x[,2])
+# #D. Linear discriminant analysis
+# da_data <- data.table(t(dim_data))
+# da_data[, group:=DT_meta_data[, group]]
+# #training model on 80 % of replicates
+# train <- sample(1:22, round(22*0.6))
+# da_train <- lda(formula=group~., data=da_data, subset=train)
+# #predicting 
+# plda <- predict(object=da_train, newdata = da_data[-train, ])
+# plda <- data.table(group=plda$class, V1=plda$x[,1], V2=plda$x[,2])
 
 #E. Flexible discriminant analysis
 library(mda)
@@ -613,14 +619,14 @@ names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
 
 ###SECTION OUTPUT
 dimension_legend <- get_legend(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom"))
-
+dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom")
 grid.arrange(arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), dimension_plot_function(MDS_classical_fit, "Classical MDS"), ncol=2))
 
 grid.arrange(arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Nonmetric MDS"), dimension_plot_function(tSNE_plot_data, "t-SNE"), ncol=2))
 
 grid.arrange(arrangeGrob(dimension_plot_function(mda_plot_data, "MDA", textboolean = F), dimension_plot_function(fda_plot_data, "FDA", textboolean = F), ncol=2))
 
-grid.arrange(arrangeGrob(dimension_plot_function(plda, "LDA", textboolean = F), dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), ncol=2))
+#grid.arrange(arrangeGrob(dimension_plot_function(plda, "LDA", textboolean = F), dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), ncol=2))
 
 grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "SVD", textboolean = T), dimension_plot_function(MLFA_plot_data, "MLFA", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(10,1)))
 
@@ -654,7 +660,6 @@ EM_cluster_function <- function(data_set){
 EM_PCA  <- EM_cluster_function(DT_principal_comp[, 2:4])
 EM_tSNE <- EM_cluster_function(tSNE_plot_data[, 1:3])
 
-
 #2. Mean-Shift
 #install.packages("MeanShift")
 library(MeanShift)
@@ -676,9 +681,13 @@ SC_tSNE <- specc(as.matrix(tSNE_plot_data[, 1:3]), centers=3)@.Data
 #4. K-Nearest Neighbour
 knn_function <- function(data_set){
   knn_predict <- knn(data_set[train, !"group"], data_set[-train, !"group"], cl=data_set[train, group], k=3)  
-  out <- data.table(data_set[-train, !"group"], knn_predict)
-  return(out)
+  data_set[-train, knn:=knn_predict]
+  
+  return(data_set[, as.integer(knn)])
 }
+
+KNN_PCA <- knn_function(DT_principal_comp[, c(1:4, 24)])
+KNN_tSNE <- knn_function(tSNE_plot_data)
 
 #5. Affinity propagation
 #install.packages("apcluster")
@@ -701,84 +710,143 @@ k_means_PCA <- kmeans(DT_principal_comp[, c(2:4)], centers=3, nstart = 20)$clust
 k_means_tSNE <- kmeans(tSNE_plot_data[, 1:3], centers=3, nstart = 20)$cluster
 
 #7. Support vector machine
+install.packages("e1071")
 library(e1071)
-svm_function <- function(dataset){
-  svm_fit <- svm(group~PC1+PC2+PC3, data=dataset[train])
+svm_function <- function(dataset, formula){
+  svm_fit <- svm(formula, data=dataset[train])
   svm_pred <- predict(svm_fit, dataset[-train])
-  return(svm_pred)
+  out <- dataset[-train, svm:=svm_pred][, as.integer(svm)] 
+  return(out)
 }
 
+SVM_PCA <- svm_function(DT_principal_comp[, c(1:4, 24)], formula(group~PC1+PC2+PC3))
+SVM_tSNE <- svm_function(tSNE_plot_data, formula(group~V1+V2+V3))
+
 #Creating cluster datasets
-PCA_cluster_data <- cbind(DT_principal_comp[, c(1:4, 24)], EM=EM_PCA, SC=SC_PCA, KM=k_means_PCA)
+PCA_cluster_data <- cbind(DT_principal_comp[, c(1:4, 24)], EM=EM_PCA, SC=SC_PCA, KM=k_means_PCA, KNN=KNN_PCA, SVM=SVM_PCA)
 PCA_cluster_data <- merge(PCA_cluster_data, AP_PCA, by="ID")
 
-tSNE_cluster_data <- cbind(tSNE_plot_data, EM=EM_PCA, SC=SC_PCA, KM=k_means_PCA)
+tSNE_cluster_data <- cbind(tSNE_plot_data, EM=EM_PCA, SC=SC_PCA, KM=k_means_tSNE, KNN=KNN_tSNE, SVM=SVM_tSNE)
 tSNE_cluster_data <- merge(tSNE_cluster_data, AP_PCA, by="ID")
 
 #8A. Hierarchical clustering: 1000 genes with highest variance
-#draw with dendrogram and with circular packing (1 setup for 1000 most variable genes och 1 setup for highest F-value)
 
 #1. Selecting the 1000 genes with highest variance 
 gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
-#2. Creating a dissimilarity structure for the 100 genes with highest variance
+#2. Creating a dissimilarity structure for the 1000 genes with highest variance
 setkey(DT_lcpm, ENSEMBL_ID)
 DT_dist <- dist(t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]))
-#3. Hierarchicla clustering on on the dissimilarity structure
+#3. Hierarchical clustering on the dissimilarity structure
 DT_hclust <- hclust(DT_dist)
-#4. Plotting the hierarchical clustering (with labels and adding color by group)
-myplclust(DT_hclust, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)
 
-#8B. Circular packing (hiding the first level of hierarchy)
-
-#sudo apt-get -y install libcurl4-gnutls-dev
-#sudo apt-get -y install libssl-dev
-#install.packages("devtools")
-#sudo apt-get install libudunits2-dev
-#install.packages('udunits2', type = "source",
-#                    configure.args=c('--with-udunits2-lib=/usr/lib/R/library'))
-#devtools::install_github("thomasp85/ggraph", dependencies=TRUE)
+#8B. Circular packing (hiding the first level of hierarchy) representation
+#Installation guide:
+  #sudo apt-get -y install libcurl4-gnutls-dev
+  #sudo apt-get -y install libssl-dev
+  #install.packages("devtools")
+  #sudo apt-get install libudunits2-dev
+  # install.packages('udunits2', type = "source",
+  #                    configure.args=c('--with-udunits2-lib=/home/ramhak/R/x86_64-pc-linux-gnu-library/3.4'))
+  #devtools::install_github("thomasp85/ggraph", dependencies=TRUE, force=T)
+  #devtools::install_github('tidyverse/ggplot2', dependencies=T, force=T) #Get the development version of ggplot2
+  #library(ggplot2)
 
 library(ggraph)
 library(igraph)
-library(viridis)
-library(Rcpp)
+library(ape)
 
+#1. Creating a phylo-object from a hclust-object
+DT_hclust_phylo <- as.phylo(DT_hclust)
+DT_hclust_edges <- DT_hclust_phylo$edge
+#2. Creating data frame and graph data from the data frame
+DT_hclust_circularpacking <- data.frame(from=DT_hclust_edges[,1], to=DT_hclust_edges[,2])
+DT_hclust_circularpacking <- graph_from_data_frame(DT_hclust_circularpacking)
+#3. Create and arrange for group and ID addition to the data-frame
+circular_packing_data_adjust  <- function(data_set, n_samples, left_to_right_ID){
+  leaf_labels <- data.table(ID=c(rep(NA, length(V(data_set)$name)-n_samples), left_to_right_ID))
+  leaf_labels[, "ID"] <- factor(leaf_labels[, ID])
+  leaf_labels <- merge(leaf_labels, DT_meta_data[, .(ID, group)], by="ID", sort=F, all=T)
+  group_sizes <- data.table(group=c("SCI", "Naive", "invitro"), size=c(1,2,3))
+  leaf_labels <- merge(leaf_labels, group_sizes, by="group", sort=F, all=T)
 
+  leaf_labels[,"ID"] <- as.integer(as.character(leaf_labels[,ID]))
+  leaf_labels[,"group"] <- as.character(leaf_labels[,group])
 
+  V(data_set)$ID <- leaf_labels$ID
+  V(data_set)$group <- leaf_labels$group
+  return(data_set)
+}
+#4. Adjusting data frame prior to plotting 
+DT_hclust_circularpacking <- circular_packing_data_adjust(DT_hclust_circularpacking, 22, c(132, 134, 136, 135, 129, 130, 131, 133, 104, 102, 105, 107, 127, 106, 108, 101, 103, 122, 123, 124, 125, 126))
 
-#geom_node_circle
-#geom_node_point
+#5. Creating the circular packing plot
+color_palette_RdBu <- brewer.pal(11, "RdBu")[c(1:4, 9:11)]
+
+hierarchical_clustering_circular_1000 <- ggraph(DT_hclust_circularpacking, layout='circlepack')+
+  geom_node_circle(aes(fill = as.factor(depth), color = as.factor(depth)), alpha=0.6)+
+  scale_fill_manual(values=c("0"="white", "1"="white", "2"=color_palette_RdBu[2], "3"=color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7]))+
+  scale_color_manual(values=c("0" = "white", "1" = "white", "2" = color_palette_RdBu[2], "3" = color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7]))+
+  
+  theme_void()+
+  theme(legend.position="FALSE")+
+  geom_node_text(aes(label=group, filter=leaf), size=2.5, fontface=2)
+
+### SECTION OUTPUT
+myplclust(DT_hclust, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)
+
+hierarchical_clustering_circular_1000
 
 ```
-
-**Fig 8. Hierarchical clustering of samples based on 1000 genes with highest variance** 
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
+#Aligning column names
+setnames(PCA_cluster_data, c("PC1", "PC2", "PC3"), c("V1", "V2", "V3"))
+
+### SECTION OUTPUT [2D plots]
+cluster_legend <- get_legend(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM", legend.position = "bottom"))
+
+#Expectation Maximum
+grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+#Spectral Clustering
+grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+#K-Means Clustering
+grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+#K-Nearest Neighbour
+grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour (train:test-60:40)\n[PCA]", cluster_type = "KNN"), dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour (train:test-60:40)\n[tSNE]", cluster_type = "KNN"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+#Support Vector Machine
+grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine (train:test-60:40)\n[PCA]", cluster_type = "SVM"), dimension_plot_function(tSNE_cluster_data, "Support Vector Machine (train:test-60:40)\n[tSNE]", cluster_type = "SVM"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+#Affinity Propagation
+grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+
+#3D illustration of clustering (SC, AP, K-means) on bootstrapped PCA-data
+#Clustering bootstrapped PCA data - 100 random samples for each ID
+DT_pca_boot_sample <- do.call(rbind, lapply(split(DT_pca_boot[,c(1:4)], DT_pca_boot[,"ID"]), function(subset){subset[sample(.N, 100)]}))
+
+#A.Spectral Clustering
+#SC_PCA_boot <- specc(as.matrix(DT_pca_boot_sample[,c(2:4)]), centers=3)
+#B. Affinity propagation
+
+#color=cluster
+#add ID as text
+scatter3D_fancy(PCA_cluster_data$V1, PCA_cluster_data$V2, PCA_cluster_data$V3, colvar = as.integer(PCA_cluster_data$group), 
+            pch=19, 
+            col = color_palette, 
+            alpha=0.7, 
+            xlab="PC1",
+            ylab="PC2",
+            zlab="PC3",
+            phi=20,
+            main = "PCA",
+            cex=2)
+
+
+
+
+
+
 
 
 ```
-
-```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
-#1. Calculating F-statistica
-DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
-
-#2. Subsetting the 500 genes with the highest F-statistica
-DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1000, ProbeID]
-
-#3. Retrieving log-CPM values for the genes
-DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
-
-#4. Creating a dissimilarity structure
-DT_toptableF <- dist(t(DT_toptableF[,-(1:2)]))
-
-#5. Hierarchical clustering  
-DT_toptableF <- hclust(DT_toptableF)
-
-#6. Drawing the dendrogram
-myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)
-```
-
-
 
 
 
@@ -846,7 +914,6 @@ grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings
 ```
 
 **Fig 7.** _Figure reports the top 10 positive and negative loadings for the first -and second principal component._ 
-
 ***
 #Negative Binominal Dispersions by Weighted Likelihood Empirical Bayes  
 
@@ -964,6 +1031,47 @@ grid.arrange(voom_plot, bayes_plot, ncol=2, nrow=1, bottom=textGrob("Average log
 ```
 
 **Fig 10.** _Figure reports the mean-variance relationship pre -and post application of the voom function. Fig 9A reports the average log-CPM against the quarter root of the variance. Fig 9B reports average log-CPM against the log2(st.dev). Blue line reports the average log2(st.dev). The red line is a linear trend fitted to the black dots. Each black dot represents a gene. Fig 9A illustrates that the variance is decresing when the average expression is increasing. In Fig 9B the dependency is removed and the mean variance is unchanged when the average expression increases._      
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
+#Hierarchical clustering of the 1000 genes with highest F-value
+#1. Calculating F-statistica
+DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
+#2. Subsetting the 500 genes with the highest F-statistica
+DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1000, ProbeID]
+#3. Retrieving log-CPM values for the genes
+DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
+#4. Creating a dissimilarity structure
+DT_toptableF <- dist(t(DT_toptableF[,-(1:2)]))
+#5. Hierarchical clustering  
+DT_toptableF <- hclust(DT_toptableF)
+#6. Creating dataset for circular packing representation
+DT_toptableF_phylo <- as.phylo(DT_toptableF)
+DT_toptableF_edges <- DT_toptableF_phylo$edge
+#7. Creating data frame and graph data from the data frame
+DT_toptableF_circularpacking <- data.frame(from=DT_toptableF_edges[,1], to=DT_toptableF_edges[,2])
+DT_toptableF_circularpacking <- graph_from_data_frame(DT_toptableF_circularpacking)
+#8. Adding ID and group identities to data frame 
+DT_toptableF_circularpacking <- circular_packing_data_adjust(DT_toptableF_circularpacking, 22, c(133, 131, 129, 134, 135, 132, 130, 136, 122, 101, 103, 126, 123, 124, 125, 127, 108, 102, 104, 106, 105, 107))
+
+hierarchical_clustering_circular_Fstatistica <- ggraph(DT_toptableF_circularpacking, layout='circlepack')+
+  geom_node_circle(aes(fill = as.factor(depth), color = as.factor(depth)), alpha=0.6)+
+  scale_fill_manual(values=c("0"="white", "1"="white", "2"=color_palette_RdBu[2], "3"=color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7], "8"=color_palette_RdBu[8]))+
+  scale_color_manual(values=c("0" = "white", "1" = "white", "2" = color_palette_RdBu[2], "3" = color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7], "8"=color_palette_RdBu[8]))+
+  
+  theme_void()+
+  theme(legend.position="FALSE")+
+  geom_node_text(aes(label=ID, filter=leaf), size=2.5, fontface=2)
+
+#SECTION OUTPUT
+myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)
+
+hierarchical_clustering_circular_Fstatistica
+```
+
+
+
+
+
 
 ***
 
