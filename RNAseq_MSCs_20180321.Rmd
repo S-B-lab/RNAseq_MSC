@@ -430,16 +430,17 @@ tSNE_plot <- function(legend_status){
 }
 
 #3. Fancy 3D plot (for PCA & t-SNE)
-scatter3D_fancy <- function(x, y, z,..., colvar = z)
+color_palette <- brewer.pal(11, "RdBu")[c(1,2,10)]
+scatter3D_fancy <- function(x, y, z,..., colvar = z, plot_color_palette=color_palette)
   {
    panelfirst <- function(pmat) {
       XY <- trans3D(x, y, z = rep(min(z), length(z)), pmat = pmat)
       scatter2D(XY$x, XY$y, colvar = colvar, pch = ".", 
-              cex = 3, add = TRUE, colkey = F, col = color_palette)
+              cex = 3, add = TRUE, colkey = F, col = plot_color_palette)
    
       XY <- trans3D(x = rep(min(x), length(x)), y, z, pmat = pmat)
       scatter2D(XY$x, XY$y, colvar = colvar, pch = ".", 
-              cex = 3, add = TRUE, colkey = F, col = color_palette)
+              cex = 3, add = TRUE, colkey = F, col = plot_color_palette)
   }
   scatter3D(x, y, z, ..., colvar = colvar, panel.first=panelfirst,
     colkey = F) 
@@ -455,7 +456,6 @@ grid.arrange(arrangeGrob(PCA_plot, tSNE_plot("none"), ncol=2), PCA_tSNE_legend, 
 ```
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-color_palette <- brewer.pal(11, "RdBu")[c(1,2,10)]
 
 #3D PCA (biological replicates)
 scatter3D_fancy(DT_principal_comp$PC1, DT_principal_comp$PC2, DT_principal_comp$PC3, colvar = as.integer(DT_principal_comp$group), 
@@ -564,6 +564,8 @@ dimension_plot_function <- function(data_set, dim_reduction_type, legend.positio
   return(dim_plot)
 }
 
+#Setting train structure for row selection
+train <- sample(1:22, round(22*0.6))
 #A. SAMMON'S NON-LINEAR MAPPING 
 library(MASS)
 sammon_mapping_fit <- sammon(dist(as.matrix(t(dim_data))))
@@ -602,7 +604,7 @@ mda_fit  <- mda(group~., subclasses=c(8,6,8),data=mda_data)
 mda_plot_data <- data.table(mda_fit$means[, 1], mda_fit$means[, 2], c("invitro", "naive", "sci"))
 names(mda_plot_data) <- c("V1", "V2", "group")
 
-# G. Singular value decomposition (SVD)
+#G. Singular value decomposition (SVD)
 svd_data <- data.table(t(dim_data), group=DT_meta_data[, factor(group)])
 svd_fit <- svd(svd_data[,1:1000])
 svd_plot_data <- data.table(V1=svd_fit$u[, 1], V2=svd_fit$u[, 2], group=DT_meta_data[, factor(group)], ID=DT_meta_data[, ID])
@@ -619,6 +621,7 @@ names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
 
 ###SECTION OUTPUT
 dimension_legend <- get_legend(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom"))
+
 dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom")
 grid.arrange(arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), dimension_plot_function(MDS_classical_fit, "Classical MDS"), ncol=2))
 
@@ -680,8 +683,8 @@ SC_tSNE <- specc(as.matrix(tSNE_plot_data[, 1:3]), centers=3)@.Data
 
 #4. K-Nearest Neighbour
 knn_function <- function(data_set){
-  knn_predict <- knn(data_set[train, !"group"], data_set[-train, !"group"], cl=data_set[train, group], k=3)  
-  data_set[-train, knn:=knn_predict]
+  knn_predict <- class::knn(data_set[train, !"group"], data_set[-train, !"group"], cl=data_set[train, "group"], k=3)  
+  data_set[-train, class::knn:=knn_predict]
   
   return(data_set[, as.integer(knn)])
 }
@@ -698,7 +701,6 @@ affinity_propagation_function <- function(dataset){
   names(ap_fit@clusters[[1]]) <- NULL
   cl_1 <- ap_fit@clusters[[1]] ; cl_2 <- ap_fit@clusters[[2]] ; cl_3 <- ap_fit@clusters[[3]]
   out <- rbind(dataset[cl_1][, AP:=1], dataset[cl_2][, AP:=2], dataset[cl_3][, AP:=3])
-  out <- out[, .(ID, AP)]
   return(out)
 }
 
@@ -724,10 +726,10 @@ SVM_tSNE <- svm_function(tSNE_plot_data, formula(group~V1+V2+V3))
 
 #Creating cluster datasets
 PCA_cluster_data <- cbind(DT_principal_comp[, c(1:4, 24)], EM=EM_PCA, SC=SC_PCA, KM=k_means_PCA, KNN=KNN_PCA, SVM=SVM_PCA)
-PCA_cluster_data <- merge(PCA_cluster_data, AP_PCA, by="ID")
+PCA_cluster_data <- merge(PCA_cluster_data, AP_PCA[, .(ID, AP)], by="ID")
 
 tSNE_cluster_data <- cbind(tSNE_plot_data, EM=EM_PCA, SC=SC_PCA, KM=k_means_tSNE, KNN=KNN_tSNE, SVM=SVM_tSNE)
-tSNE_cluster_data <- merge(tSNE_cluster_data, AP_PCA, by="ID")
+tSNE_cluster_data <- merge(tSNE_cluster_data, AP_PCA[, .(ID, AP)], by="ID")
 
 #8A. Hierarchical clustering: 1000 genes with highest variance
 
@@ -818,45 +820,42 @@ grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vect
 #Affinity Propagation
 grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
 
-#3D illustration of clustering (SC, AP, K-means) on bootstrapped PCA-data
-#Clustering bootstrapped PCA data - 100 random samples for each ID
-DT_pca_boot_sample <- do.call(rbind, lapply(split(DT_pca_boot[,c(1:4)], DT_pca_boot[,"ID"]), function(subset){subset[sample(.N, 100)]}))
+#3D illustration of clustering (AP, K-means) on bootstrapped PCA-data
+#Sample 200 from each ID
+DT_pca_boot_sample <- do.call(rbind, lapply(split(DT_pca_boot, DT_pca_boot[, .(ID)]), function(subset){subset[sample(.N, 200, replace=F)]}))
+#Shuffle the rows to get a better clustering
+DT_pca_boot_sample <- DT_pca_boot_sample[sample(.N, .N)]
 
-#A.Spectral Clustering
-#SC_PCA_boot <- specc(as.matrix(DT_pca_boot_sample[,c(2:4)]), centers=3)
-#B. Affinity propagation
+#A. Affinity propagation
+AP_PCA_boot <- affinity_propagation_function(DT_pca_boot_sample)
 
-#color=cluster
-#add ID as text
-scatter3D_fancy(PCA_cluster_data$V1, PCA_cluster_data$V2, PCA_cluster_data$V3, colvar = as.integer(PCA_cluster_data$group), 
+scatter3D_fancy(AP_PCA_boot$PC1, AP_PCA_boot$PC2, AP_PCA_boot$PC3, colvar = as.integer(AP_PCA_boot$AP), plot_color_palette=color_palette[c(2,1,3)], 
             pch=19, 
-            col = color_palette, 
+            col=color_palette[c(2,1,3)], 
+            alpha=0.7, 
+            xlab="PC1",
+            ylab="PC2",
+            zlab="PC3",
+            phi=0,
+            main="Bootstrap PCA\n[Affinity Propagation Clustering]",
+            cex=2)
+
+#B. K-Means 
+KM_PCA_boot <- kmeans(DT_pca_boot_sample[,c(2:4)], centers=3, nstart=20)
+KM_PCA_boot <- data.table(DT_pca_boot_sample[,c(2:4)], KM=KM_PCA_boot$cluster)
+
+scatter3D_fancy(KM_PCA_boot$PC1, KM_PCA_boot$PC2, KM_PCA_boot$PC3, colvar = as.integer(KM_PCA_boot$KM), plot_color_palette=color_palette[c(1,3,2)], 
+            pch=19, 
+            col=color_palette[c(1,3,2)], 
             alpha=0.7, 
             xlab="PC1",
             ylab="PC2",
             zlab="PC3",
             phi=20,
-            main = "PCA",
-            cex=2)
-
-
-
-
-
-
-
+            main="Bootstrap PCA\n[K-means Clustering]",
+            cex=1)
 
 ```
-
-
-
-
-
-
-
-
-
-
 
 **Fig 7. Top 10 positive and negative loadings for the first -and second principal component**
 
@@ -904,6 +903,28 @@ DT_loadings_plot_function <- function(data.set.loading, pc.type){
   
   return(DT_loadings_out)
 }
+
+
+#circular bar plot 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ###SECTION OUTPUT
 grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
