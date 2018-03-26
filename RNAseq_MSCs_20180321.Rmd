@@ -712,7 +712,7 @@ k_means_PCA <- kmeans(DT_principal_comp[, c(2:4)], centers=3, nstart = 20)$clust
 k_means_tSNE <- kmeans(tSNE_plot_data[, 1:3], centers=3, nstart = 20)$cluster
 
 #7. Support vector machine
-install.packages("e1071")
+#install.packages("e1071")
 library(e1071)
 svm_function <- function(dataset, formula){
   svm_fit <- svm(formula, data=dataset[train])
@@ -878,7 +878,7 @@ DT_loadings_plotdata <- rbind(DT_loadings_sub_function(DT_loadings[!is.na(SYMBOL
 #3. Adding a type variable for plotting purposes
 DT_loadings_plotdata <- DT_loadings_plotdata[,sign.type:=factor(ifelse(PC.value>0,"pos","neg"))]
 
-#4. Plotting function
+#4. Plotting function [traditional barplot]
 DT_loadings_plot_function <- function(data.set.loading, pc.type){
   data.set.loading <- data.set.loading[PC.type==pc.type]
   data.set.loading[,"Gene"] <- factor(data.set.loading[, Gene], levels=unique(data.set.loading[,Gene]))
@@ -904,30 +904,66 @@ DT_loadings_plot_function <- function(data.set.loading, pc.type){
   return(DT_loadings_out)
 }
 
-
-#circular bar plot 
-
-
-
-
-
+#5. Plotting loadingsdata [Circular barplot]
+data=data.table(
+  individual=paste( "Mister ", seq(1,60), sep=""),
+  group=c( rep('A', 10), rep('B', 30), rep('C', 14), rep('D', 6)) ,
+  value=sample( seq(10,100), 60, replace=T))
 
 
+#Selecting 500 genes with highest variance
+loadings_data_circular <- data.table(SYMBOL=gene_variance_top500[,SYMBOL], DT_principal_comp_raw$rotation[,(1:4)])
+#Converting PC-value to absolute values
+loadings_data_circular[,2:5] <- loadings_data_circular[, lapply(.SD, function(column){abs(column)}), .SDcols=names(loadings_data_circular)[2:5]]
+#Sorting each principal component separately
+loadings_data_circular_melt <- do.call(rbind, lapply(c(names(loadings_data_circular)[2:5]), function(column){loadings_data_circular[, .(SYMBOL, get(column))][order(-V2)][,PC:=substr(column, 3, 3)][1:10]}))
+names(loadings_data_circular_melt) <- c("SYMBOL", "value", "PC")
+#Converting PC to a factor variable
+loadings_data_circular_melt[, "PC"] <- factor(loadings_data_circular_melt[, PC])
 
+#Arranging data for plotting
+empty_bar <- 3
+to_add <-  data.table(matrix(NA, empty_bar*nlevels(loadings_data_circular_melt$PC), ncol(loadings_data_circular_melt)))
+names(to_add) <-  colnames(loadings_data_circular_melt)
+to_add$PC <- rep(levels(loadings_data_circular_melt$PC), each=empty_bar)
+loadings_data_circular_melt <- rbind(loadings_data_circular_melt, to_add)
+loadings_data_circular_melt <- loadings_data_circular_melt[order(PC)]
+loadings_data_circular_melt$id=seq(1, nrow(loadings_data_circular_melt))
+#Adjusting values for easier plotting
+loadings_data_circular_melt[, value:=value*100]
 
+# Get the name and the y position of each label
+label_data <- loadings_data_circular_melt
+number_of_bar <- nrow(label_data)
+angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar 
+label_data$hjust<-ifelse(angle < -90, 1, 0)
+label_data$angle<-ifelse(angle < -90, angle+180, angle)
 
+#Prepare a data frame for base lines
+base_data <- loadings_data_circular_melt[, .(start=min(id), end=max(id)-empty_bar), by="PC"]
+base_data[, title:=apply(base_data[, 2:3], 1, mean)]
 
+circular_loadings_plot <-  ggplot(loadings_data_circular_melt, aes(x=as.factor(id), y=value, fill=PC))+
+  geom_bar(aes(x=as.factor(id), y=value, fill=PC), stat="identity", alpha=0.5)+
+  annotate("text", x = rep(max(loadings_data_circular_melt$id), 4), y = seq(0, 12, 4), label = c("0", "0.1", "0.2", "0.3") , color="grey", size=3, angle=0, fontface="bold", hjust=1)+
 
+  ylim(-10, 30)+
+  theme_minimal()+
+  theme(legend.position = "none", axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank(), plot.margin = unit(c(-2, -1, 0, 0), "cm"))+
+  coord_polar()+
+  
+  geom_text(data=label_data, aes(x=id, y=value*1.05, label=SYMBOL, hjust=hjust), color="black", fontface="bold",alpha=0.6, size=2.5, angle= label_data$angle, inherit.aes = FALSE)+
+  geom_segment(data=base_data, aes(x = start, y = -1, xend = end, yend = -1), colour = "black", alpha=0.8, size=0.6, inherit.aes = FALSE)+
+  geom_text(data=base_data, aes(x = title, y = -3, label=PC), hjust=c(1,1,0,0), colour = "black", alpha=0.8, size=4, fontface="bold", inherit.aes = FALSE)+
+  
+  annotate(geom="text", x=0, y=-9, label="PC", fontface=2)+
+  
+  scale_fill_manual(values=color_palette_RdBu[c(1,2,6,7)])
 
-
-
-
-
-
-
+circular_loadings_plot
 
 ###SECTION OUTPUT
-grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
+# grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
 
 # #Saving loadings plot for PC1
 # ggsave("loadings_plot.jpg",DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), dpi=1000, width=14, height=7)
@@ -1088,11 +1124,6 @@ myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_dat
 
 hierarchical_clustering_circular_Fstatistica
 ```
-
-
-
-
-
 
 ***
 
@@ -1291,7 +1322,7 @@ kable(data.table(Type="KEGG", DT_KEGG_top), align=c("l", "l", rep("c", 6)))
 #1. Subsetting data up to 100 most significant DE genes between allogenic and syngeneic (coef=4)
 DT_logFC <- data.table(toptable(DT_efit, coef=1, number=Inf, genelist = DT_read_count_filtered[,ENSEMBL_ID]))
 DT_logFC <- merge(DT_logFC, DT_read_count[,.(ENSEMBL_ID, SYMBOL)], by.x="ID", by.y="ENSEMBL_ID")
-DT_logFC_significant <- DT_logFC[adj.P.Val<0.05]
+DT_logFC_significant <- DT_logFC[adj.P.Val<1e-6]
 setcolorder(DT_logFC_significant, c(1,7,2:6))
 DT_logFC_significant[,"SYMBOL"] <- DT_logFC_significant[,.(ifelse(is.na(SYMBOL), ID, SYMBOL))]
 
@@ -1340,6 +1371,50 @@ heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_
 # heatmap_plot_function(DT_logFC_significant_lcpm[,c(3:14)],2,DT_meta_data[,sample],"both", DT_logFC_significant_lcpm[,as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))])
 # 
 # dev.off()
+
+```
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=30, fig.height=30}
+#Define the genes which are in the three clusters
+  # rank the genes on LogFC and/or p-value -> present
+#Make circular plot combining clusters and samples
+#Network representation?
+
+#1. Retrieving data from
+heatmap_data <- invisible(heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))]))
+#2. Changing column order to match heatmap layout
+DT_logFC_significant_lcpm_heatmap <- setcolorder(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)], heatmap_data$colInd)
+DT_logFC_significant_lcpm_heatmap <- cbind(DT_logFC_significant_lcpm[, c(1,2)], DT_logFC_significant_lcpm_heatmap)
+#3. Changing row order to match layout of heatmap
+DT_logFC_significant_lcpm_heatmap <- DT_logFC_significant_lcpm_heatmap[, row_sort_temp:=heatmap_data$rowInd]
+DT_logFC_significant_lcpm_heatmap <- DT_logFC_significant_lcpm_heatmap[order(row_sort_temp)]
+DT_logFC_significant_lcpm_heatmap[, row_sort_temp:=NULL]
+#4. Identifying the significant cluster
+h <- heatmap(as.matrix(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)]), keep.dendro=TRUE)
+row.clusters <- as.hclust(h$Rowv)
+row.clusters <- cutree(row.clusters, k=13)
+#table(row.clusters)
+#1: 562 (4)
+#2: 139+709 (5, 9)
+#3: 496 (3)
+#4: 130+11 (6, 8)
+#5: 63+1 (2, 13)
+#6: 469+255+213 (1, 10, 7)
+#7: 47+19 (11, 12)
+cluster_index <- c(rep(1, 562), rep(2, 848), rep(3, 496), rep(4, 141), rep(5, 64), rep(6, 937), rep(7,66))
+#5. Adding cluster belonging
+DT_logFC_significant_lcpm_heatmap[,cluster:=cluster_index]
+
+#Gör clusteranalys -> ranka på logFC & p-value
+DT_logFC_significant_lcpm_heatmap[cluster==2]
+
+
+
+
+
+
+
+
 
 ```
 
