@@ -294,29 +294,29 @@ grid.arrange(log_cpm_distribution_function(DT_lcpm_notNormalised_melt, "RAW"), l
 
 # Dimensionality Reduction
 
-* Reducing the number of dimensions of a dataset without compromising the information content. Two main approaches: feature selection / linear models and feature extraction. 
-  + Feature selection: find a subset of the original variables.
-  + Feature extraction: transformation from high-dimensional to low-dimensional space. 
+Reducing the number of dimensions of a dataset without compromising the information content. Two main approaches: feature selection / linear models and feature extraction. 
+Feature selection: find a subset of the original variables.
+Feature extraction: transformation from high-dimensional to low-dimensional space. 
 
-**Principal component analysis (PCA):** 1) The mean of each variable is subtracted to center the data (mean of each column is zero), 2) variance-covariance matrix is calculated, 3) eigenvalues and eigenvectors of the covariance matrix is determined, 4) each (orthogonal) eigenvector is normalized in order to find the unit vector. 
+* **Principal component analysis (PCA):** 1) The mean of each variable is subtracted to center the data (mean of each column is zero), 2) variance-covariance matrix is calculated, 3) eigenvalues and eigenvectors of the covariance matrix is determined, 4) each (orthogonal) eigenvector is normalized in order to find the unit vector. 
 
-**t-distributed Stochastic Neighbour Embedding (tSNE):** A non-linear approach. Algorithm has two main steps: 1) probability distribution is constructed on the data such that similar points are likely to be picked and vice versa. 2) Divergence between the distributions is minimized with respect to the location of the points on the map.  
+* **t-distributed Stochastic Neighbour Embedding (tSNE):** A non-linear approach. Algorithm has two main steps: 1) probability distribution is constructed on the data such that similar points are likely to be picked and vice versa. 2) Divergence between the distributions is minimized with respect to the location of the points on the map.  
 
-**Sammon's non-linear mapping:** A non-linear approach. Algorithm minimizes the stress (i.e. the difference between distances between points in the input data and the distances in the configuration). 
+* **Sammon's non-linear mapping:** A non-linear approach. Algorithm minimizes the stress (i.e. the difference between distances between points in the input data and the distances in the configuration). 
 
-**Multidimensional scaling (MDS):** A non-linear approach. 1) assign observations to arbitrary coordiantes in p-dimensional space, 2) compute euclidian distances among all pairs of points and form the Dhat matrix, 3) compare the Dhat matrix with the input matrix using a stress function (low stress level indicates a good correspondence), 4) repeat proces untill stress cannot be minimized more.     
+* **Multidimensional scaling (MDS):** A non-linear approach. 1) assign observations to arbitrary coordiantes in p-dimensional space, 2) compute euclidian distances among all pairs of points and form the Dhat matrix, 3) compare the Dhat matrix with the input matrix using a stress function (low stress level indicates a good correspondence), 4) repeat proces untill stress cannot be minimized more.     
 
-**Linear discriminant analysis (LDA):** Similar to PCA and factor analysis. Looks for linear combinations of variables which best explain the data. In addition to finding the component axes which maximizes the variance of the data (as in PCA), LDA also find the axes which maximizes the separation between multiple classes. LDA is supervised and computes the directions (linear discriminants) that represent the axes that maximize the separation between multiple classes. 
+* **Linear discriminant analysis (LDA):** Similar to PCA and factor analysis. Looks for linear combinations of variables which best explain the data. In addition to finding the component axes which maximizes the variance of the data (as in PCA), LDA also find the axes which maximizes the separation between multiple classes. LDA is supervised and computes the directions (linear discriminants) that represent the axes that maximize the separation between multiple classes. 
 
-**Singular Value Decomposition (SVD):** The matrix A(mxn) is factorized into a unitary matrix U (mxm), a positive diagnonal matrix (mxn) and a unitary matrix V (nxn).  
+* **Singular Value Decomposition (SVD):** The matrix A(mxn) is factorized into a unitary matrix U (mxm), a positive diagnonal matrix (mxn) and a unitary matrix V (nxn).  
 
-**Factor analysis (maximum likelihood):** 
+* **Factor analysis (maximum likelihood):** 
 
-**Mixture Discriminant Analysis (MDA):** Extension of linear discriminant analysis. Uses a mixture of Gaussian models as compared to the LDA which uses only one. Models the within group multivariate density of the predictors using a mix of multivariate normal distributions.  
+* **Mixture Discriminant Analysis (MDA):** Extension of linear discriminant analysis. Uses a mixture of Gaussian models as compared to the LDA which uses only one. Models the within group multivariate density of the predictors using a mix of multivariate normal distributions.  
 
-**Flexible Discriminant Analysis (FDA):** A mixture of linear regression models.
+* **Flexible Discriminant Analysis (FDA):** A mixture of linear regression models.
 
-**Kernel PCA:** Extension of PCA by using kernel methods. The data points are first mapped onto a non-linear feature space, then the PCA is conducted as usual.
+* **Kernel PCA:** Extension of PCA by using kernel methods. The data points are first mapped onto a non-linear feature space, then the PCA is conducted as usual.
 
 **Fig 3. Variance explained by principal components based on the 500 genes with highest variance**
 
@@ -424,8 +424,8 @@ PCA_plot <- ggplot(DT_principal_comp, aes(PC1, PC2))+
 #5. 2D plot [tSNE]
 tSNE_plot <- function(legend_status){
   plot_out <- ggplot(tSNE_plot_data, aes(V1, V2))+
-  geom_segment(aes(x=-70, xend=70, y=0, yend=0), size=0.2)+
-  geom_segment(aes(x=0, xend=0, y=-80, yend=70), size=0.2)+
+  geom_segment(aes(x=tSNE_plot_data[, min(V1)]*1.2, xend=tSNE_plot_data[, max(V1)]*1.2, y=0, yend=0), size=0.2)+
+  geom_segment(aes(x=0, xend=0, y=tSNE_plot_data[, min(V2)], yend=tSNE_plot_data[, max(V2)]), size=0.2)+
   geom_polygon(ellipse_data_tSNE, mapping=aes(x, y, fill=group), alpha=0.2, show.legend=F)+
   geom_point(aes(color=group, shape=group), size=7, alpha=0.8)+
 
@@ -451,11 +451,11 @@ scatter3D_fancy <- function(x, y, z,..., colvar = z, plot_color_palette=color_pa
    panelfirst <- function(pmat) {
       XY <- trans3D(x, y, z = rep(min(z), length(z)), pmat = pmat)
       scatter2D(XY$x, XY$y, colvar = colvar, pch = ".", 
-              cex = 6, add = TRUE, colkey = F, col = plot_color_palette, alpha=0.8)
+              cex = 7, add = TRUE, colkey = F, col = plot_color_palette, alpha=0.8)
    
       XY <- trans3D(x = rep(min(x), length(x)), y, z, pmat = pmat)
       scatter2D(XY$x, XY$y, colvar = colvar, pch = ".", 
-              cex = 6, add = TRUE, colkey = F, col = plot_color_palette, alpha=0.8)
+              cex = 7, add = TRUE, colkey = F, col = plot_color_palette, alpha=0.8)
   }
   scatter3D(x, y, z, ..., colvar = colvar, panel.first=panelfirst,
     colkey = F) 
@@ -486,32 +486,32 @@ scatter3D_fancy(DT_principal_comp$PC1, DT_principal_comp$PC2, DT_principal_comp$
             ylab="PC2",
             zlab="PC3",
             phi=20,
-            main = "PCA",
+            main="PCA",
             cex=4, 
             cex.main=3, 
-            cex.lab=3)
+            cex.lab=2)
 
 #3D plot [t-SNE] (biological replicates)
 scatter3D_fancy(tSNE_plot_data$V1, tSNE_plot_data$V2, tSNE_plot_data$V3, 
             colvar = as.integer(tSNE_plot_data$group), 
             pch=19, 
-            col = color_palette, 
+            col=color_palette, 
             alpha=0.7, 
             xlab="V1",
             ylab="V2",
             zlab="V3",
             phi=20,
-            main = "t-SNE",
+            main="t-SNE",
             cex=4,
             cex.main=3, 
-            cex.lab=3)
+            cex.lab=2)
 
 ```
 
 **Fig 7. Dimensionality reduction using PCA of the 500 genes with highest variance reporting three first components on 1000 bootstrap replicates of dimensionality reduction**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
-#1. PCA bootstrap function: boostrap from top 500 genes with highest variance and calculate PC1, PC2 & PC3 
+#1. PCA bootstrap function: bootstrap from top 500 genes with highest variance and calculate PC1, PC2 & PC3 
 pca_simulation_function <- function(dataset, run){
   sim_data <- dataset[sample(1:500, replace = T)]
   sim_prcomp_raw <- prcomp(t(sim_data))$x[,(1:3)]
@@ -534,11 +534,11 @@ scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3,
             ylab="PC2",
             zlab="PC3",
             phi=20,
-            main="Boostrap PCA [cloud]",
+            main="Bootstrap PCA",
             cex=2,
             theta=30,
-            cex.main=3, 
-            cex.lab=3)
+            cex.main=2.5, 
+            cex.lab=2)
 
 #3D PCA plot bootstrapped (without 3D-coordinates)
 scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3, 
@@ -550,19 +550,21 @@ scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3,
             ylab="PC2",
             zlab="PC3",
             phi=20,
-            main="Boostrap PCA [no cloud]",
+            main="Bootstrap PCA",
             cex=0,
             theta=30,
-            cex.main=3, 
-            cex.lab=3)
+            cex.main=2.5, 
+            cex.lab=2)
 
 ```
 
 ```{r echo=F, warning=F, message=F, error=F}
-########################################### UNSUPERVISED LEARNING (All other methods) ############################################
+########################################### UNSUPERVISED LEARNING (all other methods) ############################################
 ```
 
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+**Fig 8. Dimensionality reduction using other common methods of the 500 genes with highest variance reporting the two first components**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
 #1. Creating data for dimensionality reduction and clustering
 dim_data <- DT_lcpm[ENSEMBL_ID %in% gene_variance_top500[,ENSEMBL_ID],-(1:2)]
 #2. Function which plots data following dimensionality reduction
@@ -570,14 +572,14 @@ dimension_plot_function <- function(data_set, dim_reduction_type, legend.positio
   if(cluster_type!="none"){data_set <- data_set[!is.na(get(cluster_type))]}
   
   dim_plot <- ggplot(data_set, aes(V1, V2))+
-    geom_segment(aes(x=data_set[, min(V1)]*1.2, xend=data_set[, max(V1)]*1.2, y=data_set[, mean(V2)], yend=data_set[, mean(V2)]), color="black", size=0.1, alpha=0.5)+
-    geom_segment(aes(x=data_set[, mean(V2)], xend=data_set[, mean(V2)], y=data_set[, min(V2)]*1.2, yend=data_set[, max(V2)]*1.2), color="black", size=0.1, alpha=0.5)+
+    geom_segment(aes(x=data_set[, mean(range(V1))], xend=data_set[, mean(range(V1))], y=data_set[, min(V2)]*1.2, yend=data_set[, max(V2)]), color="black", size=0.1, alpha=0.5)+
+    geom_segment(aes(x=data_set[, min(V1)]*1.2, xend=data_set[, max(V1)]*1.2, y=data_set[, mean(range(V2))], yend=data_set[, mean(range(V2))]), color="black", size=0.1, alpha=0.5)+
     
-    theme(legend.title = element_blank(), legend.position = legend.position, legend.text=element_text(size=20), legend.justification = "center", axis.title = element_blank(), axis.text = element_blank(), axis.line = element_blank(), axis.ticks = element_blank())+
+    theme(legend.title=element_blank(), legend.position=legend.position, legend.text=element_text(size=20), legend.justification="center", axis.title=element_blank(), axis.text=element_blank(), axis.line=element_blank(), axis.ticks=element_blank())+
     
     scale_shape_manual(values=c(18,17,16), labels=group_names)+
     
-    annotate(geom="text", x=data_set[, mean(V1)], y=data_set[, mean(V2)], label=dim_reduction_type, size=7, fontface=2, alpha=0.7)
+    annotate(geom="text", x=data_set[, mean(range(V1))], y=data_set[, mean(range(V2))], label=dim_reduction_type, size=7, fontface=2, alpha=0.7)
   
     if(cluster_type=="none"){dim_plot <- dim_plot + 
       geom_point(aes(color=group, shape=group), size=7, alpha=0.7)+
@@ -597,36 +599,28 @@ train <- sample(1:22, round(22*0.6))
 
 #4. Various types of dimensionality reduction algorithms
 #A. SAMMON'S NON-LINEAR MAPPING
-invisible(capture.output(sammon_mapping_fit <- sammon(dist(as.matrix(t(dim_data))))))
+invisible(capture.output(sammon_mapping_fit <- sammon(dist(as.matrix(t(dim_data))), k=2, niter=100)))
 sammon_mapping_plot_data <- data.table(sammon_mapping_fit$points)
 sammon_mapping_plot_data[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
 #B. Classical MDS
-MDS_classical_fit <- cmdscale(dist(t(dim_data)), eig=TRUE, k=2) 
-MDS_classical_fit <- data.table(MDS_classical_fit$points)
+MDS_classical_fit <- cmdscale(dist(t(dim_data)), k=2) 
+MDS_classical_fit <- data.table(MDS_classical_fit)
 MDS_classical_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
-#C. Non-metric MDS
-MDS_nonmetric_fit <- invisible(isoMDS(dist(t(dim_data)), k=2)) 
+#C. Kruskal's Non-metric MDS
+invisible(capture.output(MDS_nonmetric_fit <- isoMDS(dist(t(dim_data)), k=2)))
 MDS_nonmetric_fit <- data.table(MDS_nonmetric_fit$points)
 MDS_nonmetric_fit[,`:=`(ID=DT_meta_data[, ID], group=DT_meta_data[,group])]
-# #D. Linear discriminant analysis
-# da_data <- data.table(t(dim_data))
-# da_data[, group:=DT_meta_data[, group]]
-# #training model on 80 % of replicates
-# train <- sample(1:22, round(22*0.6))
-# da_train <- lda(formula=group~., data=da_data, subset=train)
-# #predicting 
-# plda <- predict(object=da_train, newdata = da_data[-train, ])
-# plda <- data.table(group=plda$class, V1=plda$x[,1], V2=plda$x[,2])
 #E. Flexible discriminant analysis
-fda_data <- data.table(t(dim_data), group=DT_meta_data[, group])
-fda_fit <- fda(group~., data=fda_data)
-fda_plot_data  <- data.table(fda_fit$means[, 1], fda_fit$means[, 2], group=rownames(fda_fit$means))
+# fda_data <- data.table(t(dim_data), group=DT_meta_data[, factor(group)])
+# fda_fit <- fda(group~., data=fda_data[train,])
+# predict(fda_fit)
 #F. Mixture discriminant analysis (MDA)
-mda_data <- data.table(t(dim_data), group=DT_meta_data[,factor(group)])
-mda_fit  <- mda(group~., subclasses=c(8,6,8),data=mda_data)
-mda_plot_data <- data.table(mda_fit$means[, 1], mda_fit$means[, 2], c("invitro", "naive", "sci"))
-names(mda_plot_data) <- c("V1", "V2", "group")
-#G. Singular value decomposition (SVD)
+# mda_data <- data.table(t(dim_data), group=DT_meta_data[,factor(group)])
+# mda_fit  <- mda(group~., subclasses=c(8,6,8),data=mda_data)
+# mda_plot_data <- data.table(mda_fit$means[, 1], mda_fit$means[, 2], c("invitro", "naive", "sci"))
+# names(mda_plot_data) <- c("V1", "V2", "group")
+
+#G. Singular Value Decomposition (SVD)
 svd_data <- data.table(t(dim_data), group=DT_meta_data[, factor(group)])
 svd_fit <- svd(svd_data[,1:500])
 svd_plot_data <- data.table(V1=svd_fit$u[, 1], V2=svd_fit$u[, 2], group=DT_meta_data[, factor(group)], ID=DT_meta_data[, ID])
@@ -641,30 +635,31 @@ names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
 ###SECTION OUTPUT
 dimension_legend <- get_legend(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom"))
 
-dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom")
-grid.arrange(arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), dimension_plot_function(MDS_classical_fit, "Classical MDS"), ncol=2))
+grid.arrange(arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), dimension_plot_function(MDS_classical_fit, "Multidimensioanl Scaling\[classical]"), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
-grid.arrange(arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Nonmetric MDS"), dimension_plot_function(tSNE_plot_data, "t-SNE"), ncol=2))
+grid.arrange(arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Multidimensional scaling\n[nonmetric]"), dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
-grid.arrange(arrangeGrob(dimension_plot_function(mda_plot_data, "MDA", textboolean = F), dimension_plot_function(fda_plot_data, "FDA", textboolean = F), ncol=2))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Singular Value Decomposition", textboolean = T), dimension_plot_function(MLFA_plot_data, "Maximum Likelihood\nFactor Analysis", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(5,1)))
 
-#grid.arrange(arrangeGrob(dimension_plot_function(plda, "LDA", textboolean = F), dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), ncol=2))
 
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "SVD", textboolean = T), dimension_plot_function(MLFA_plot_data, "MLFA", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(10,1)))
 
 ```
 
-#Clustering 
+***
 
-    + Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
-    + Mean-shift
-    + Spectral clustering
-    + KNN
-    + Affinity propagation
-    + K-means
-    + Support vector machine
-    + Hierarchical clustering
-    
+#Clustering Algorithms
+
+* Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
+* Mean-shift
+* Spectral clustering
+* KNN
+* Affinity propagation
+* K-means
+* Support vector machine
+* Hierarchical clustering
+
+**Fig 9. Hierarchical clustering of samples using 500 most variable genes**
+
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
 #1. Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
 EM_cluster_function <- function(data_set){
@@ -686,11 +681,11 @@ mean_shift_function <- function(data_set){
 
 #Not used: does not give more than one cluster (too few replicates) 
 
-#3. Spectral Clustering
+#3. Spectral Clustering (SC)
 SC_PCA <- specc(as.matrix(DT_principal_comp[, 2:4]), centers=3)@.Data
 SC_tSNE <- specc(as.matrix(tSNE_plot_data[, 1:3]), centers=3)@.Data
 
-#4. K-Nearest Neighbour (2 neighbours)
+#4. K-Nearest Neighbour (KNN) (2 neighbours)
 knn_function <- function(data_set){
   knn_predict <- class::knn(data_set[train, !"group"], data_set[-train, !"group"], cl=data_set[train, group], k=2)
   data_set[-train, knn:=knn_predict]
@@ -699,7 +694,7 @@ knn_function <- function(data_set){
 KNN_PCA <- knn_function(DT_principal_comp[, c(1:4, 24)])
 KNN_tSNE <- knn_function(tSNE_plot_data)
 
-#5. Affinity Propagation
+#5. Affinity Propagation (AP)
 affinity_propagation_function <- function(dataset){
   ap_fit <- apcluster(negDistMat(r=2), dataset[, names(dataset)%in%c("PC1", "PC2", "PC3", "V1", "V2", "V3"), with=F])
   names(ap_fit@clusters[[1]]) <- NULL
@@ -714,7 +709,7 @@ AP_tSNE <- affinity_propagation_function(tSNE_plot_data)
 k_means_PCA <- kmeans(DT_principal_comp[, c(2:4)], centers=3, nstart = 20)$cluster
 k_means_tSNE <- kmeans(tSNE_plot_data[, 1:3], centers=3, nstart = 20)$cluster
 
-#7. Support vector machine
+#7. Support Vector Machine (SVM)
 svm_function <- function(dataset, formula){
   svm_fit <- svm(formula, data=dataset[train])
   svm_pred <- predict(svm_fit, dataset[-train])
@@ -731,25 +726,25 @@ PCA_cluster_data <- merge(PCA_cluster_data, AP_PCA[, .(ID, AP)], by="ID")
 tSNE_cluster_data <- cbind(tSNE_plot_data, EM=EM_PCA, SC=SC_PCA, KM=k_means_tSNE, KNN=KNN_tSNE, SVM=SVM_tSNE)
 tSNE_cluster_data <- merge(tSNE_cluster_data, AP_PCA[, .(ID, AP)], by="ID")
 
-#8A. Hierarchical clustering: 1000 genes with highest variance
+#8A. Hierarchical clustering: 500 genes with highest variance
 
-#1. Selecting the 1000 genes with highest variance 
+#1. Selecting the 1000 most variable genes (500 to low to separate the remaining two in-vitro samples)
 gene_variance_top1000 <- gene_variance[order(-variance)][1:1000]
-#2. Creating a dissimilarity structure for the 1000 genes with highest variance
+#1. Creating a dissimilarity structure for the 500 genes with highest variance
 setkey(DT_lcpm, ENSEMBL_ID)
 DT_dist <- dist(t(DT_lcpm[ENSEMBL_ID %in% gene_variance_top1000[,ENSEMBL_ID],-(1:2)]))
-#3. Hierarchical clustering on the dissimilarity structure
+#2. Hierarchical clustering on the dissimilarity structure
 DT_hclust <- hclust(DT_dist)
 
 #8B. Circular packing representation
 
-#Creating a phylo-object from a hclust-object
+#1. Creating a phylo-object from a hclust-object
 DT_hclust_phylo <- as.phylo(DT_hclust)
 DT_hclust_edges <- DT_hclust_phylo$edge
 #2. Creating data frame and graph data from the data frame
 DT_hclust_circularpacking <- data.frame(from=DT_hclust_edges[,1], to=DT_hclust_edges[,2])
 DT_hclust_circularpacking <- graph_from_data_frame(DT_hclust_circularpacking)
-#3. Create and arrange for group and ID addition to the data-frame
+#3. Create and arrange for addition of group and ID to the data frame
 circular_packing_data_adjust  <- function(data_set, n_samples, left_to_right_ID){
   leaf_labels <- data.table(ID=c(rep(NA, length(V(data_set)$name)-n_samples), left_to_right_ID))
   leaf_labels[, "ID"] <- factor(leaf_labels[, ID])
@@ -764,13 +759,12 @@ circular_packing_data_adjust  <- function(data_set, n_samples, left_to_right_ID)
   V(data_set)$group <- leaf_labels$group
   return(data_set)
 }
-#4. Adjusting data frame prior to plotting 
+#4. Adjusting data frame prior to plotting (adding leaf numbers manually from dendrogram) 
 DT_hclust_circularpacking <- circular_packing_data_adjust(DT_hclust_circularpacking, 22, c(132, 134, 136, 135, 129, 130, 131, 133, 104, 102, 105, 107, 127, 106, 108, 101, 103, 122, 123, 124, 125, 126))
-
 #5. Creating the circular packing plot
 color_palette_RdBu <- brewer.pal(11, "RdBu")[c(1:4, 9:11)]
 
-hierarchical_clustering_circular_1000 <- ggraph(DT_hclust_circularpacking, layout='circlepack')+
+hierarchical_clustering_circular_500 <- ggraph(DT_hclust_circularpacking, layout='circlepack')+
   geom_node_circle(aes(fill = as.factor(depth), color = as.factor(depth)), alpha=0.6)+
   scale_fill_manual(values=c("0"="white", "1"="white", "2"=color_palette_RdBu[2], "3"=color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7]))+
   scale_color_manual(values=c("0" = "white", "1" = "white", "2" = color_palette_RdBu[2], "3" = color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7]))+
@@ -780,33 +774,49 @@ hierarchical_clustering_circular_1000 <- ggraph(DT_hclust_circularpacking, layou
   geom_node_text(aes(label=group, filter=leaf), size=2.5, fontface=2)
 
 ### SECTION OUTPUT
-myplclust(DT_hclust, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)
+dev.off()
+par(mfrow=c(1,2))
 
-hierarchical_clustering_circular_1000
+grid.arrange(arrangeGrob(
+  
+grob(myplclust(DT_hclust, labels=paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)),
+
+hierarchical_clustering_circular_1000, ncol=2))
 
 ```
 
-```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
+**Fig 9.** _Figure reports hierarchical clustering based on te 500 most variable genes. Left figure reports the clustering using a dendrogram while the right figure reports the same clustering using a circular packing plot._
+
+**Fig 10. Clustering of samples using common methods following dimensionality reduction with PCA and tSNE.**
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #Aligning column names
 setnames(PCA_cluster_data, c("PC1", "PC2", "PC3"), c("V1", "V2", "V3"))
-
 
 ### SECTION OUTPUT [2D plots]
 cluster_legend <- get_legend(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM", legend.position = "bottom"))
 
 #Expectation Maximum
-grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), ncol=2), cluster_legend, nrow=2, heights=c(5,1)))
 #Spectral Clustering
-grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), ncol=2), cluster_legend, nrow=2, heights=c(5,1)))
 #K-Means Clustering
-grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), ncol=2), cluster_legend, nrow=2, heights=c(5,1)))
 #K-Nearest Neighbour
-grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour (train:test-60:40)\n[PCA]", cluster_type = "KNN"), dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour (train:test-60:40)\n[tSNE]", cluster_type = "KNN"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour (train:test-60:40)\n[PCA]", cluster_type = "KNN"), dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour (train:test-60:40)\n[tSNE]", cluster_type = "KNN"), ncol=2), cluster_legend, nrow=2, heights=c(5,1)))
 #Support Vector Machine
-grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine (train:test-60:40)\n[PCA]", cluster_type = "SVM"), dimension_plot_function(tSNE_cluster_data, "Support Vector Machine (train:test-60:40)\n[tSNE]", cluster_type = "SVM"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine (train:test-60:40)\n[PCA]", cluster_type = "SVM"), dimension_plot_function(tSNE_cluster_data, "Support Vector Machine (train:test-60:40)\n[tSNE]", cluster_type = "SVM"), ncol=2), cluster_legend, nrow=2, heights=c(5,1)))
 #Affinity Propagation
-grid.arrange(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), ncol=2), cluster_legend, nrow=2, heights=c(6,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), ncol=2), cluster_legend, nrow=2, heights=c(5,1)))
 
+
+```
+
+**Fig 10.** _Figure reports result of common clustering algorithms implemented on samples following dimensionality reduction using PCA and tSNE. In the case train-test split was required a 60:40 ratio (13:9 samples) was used instead of a traditional 80:20 ratio due to low number of samples in the test set._
+
+**Fig 11. Clustering of 200 random bootstrap replicates for each sample using affinity propagation and k-means clustering** 
+
+```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #3D illustration of clustering (AP, K-means) on bootstrapped PCA-data
 #Sample 200 from each ID
 DT_pca_boot_sample <- do.call(rbind, lapply(split(DT_pca_boot, DT_pca_boot[, .(ID)]), function(subset){subset[sample(.N, 200, replace=F)]}))
@@ -815,6 +825,12 @@ DT_pca_boot_sample <- DT_pca_boot_sample[sample(.N, .N)]
 
 #A. Affinity Propagation
 AP_PCA_boot <- affinity_propagation_function(DT_pca_boot_sample)
+#B. K-Means Clustering
+KM_PCA_boot <- kmeans(DT_pca_boot_sample[,c(2:4)], centers=3, nstart=20)
+KM_PCA_boot <- data.table(DT_pca_boot_sample[,c(2:4)], KM=KM_PCA_boot$cluster)
+
+###SECTION OUTPUT
+par(mfrow=c(1,2), mar=c(4,2,5,1))
 
 scatter3D_fancy(AP_PCA_boot$PC1, AP_PCA_boot$PC2, AP_PCA_boot$PC3, colvar = as.integer(AP_PCA_boot$AP), plot_color_palette=color_palette[c(2,1,3)], 
             pch=19, 
@@ -825,11 +841,9 @@ scatter3D_fancy(AP_PCA_boot$PC1, AP_PCA_boot$PC2, AP_PCA_boot$PC3, colvar = as.i
             zlab="PC3",
             phi=0,
             main="Bootstrap PCA\n[Affinity Propagation Clustering]",
-            cex=2)
-
-#B. K-Means Clustering
-KM_PCA_boot <- kmeans(DT_pca_boot_sample[,c(2:4)], centers=3, nstart=20)
-KM_PCA_boot <- data.table(DT_pca_boot_sample[,c(2:4)], KM=KM_PCA_boot$cluster)
+            cex=2,
+            cex.main=2.5, 
+            cex.lab=2)
 
 scatter3D_fancy(KM_PCA_boot$PC1, KM_PCA_boot$PC2, KM_PCA_boot$PC3, colvar = as.integer(KM_PCA_boot$KM), plot_color_palette=color_palette[c(1,3,2)], 
             pch=19, 
@@ -838,18 +852,23 @@ scatter3D_fancy(KM_PCA_boot$PC1, KM_PCA_boot$PC2, KM_PCA_boot$PC3, colvar = as.i
             xlab="PC1",
             ylab="PC2",
             zlab="PC3",
-            phi=20,
+            phi=0,
             main="Bootstrap PCA\n[K-means Clustering]",
-            cex=1)
+            cex=1,
+            cex.main=2.5, 
+            cex.lab=2)
 
 ```
 
-**Fig 7. Top 10 positive and negative loadings for the first -and second principal component**
+**Fig 11.** _Figure reports 3-dimensional representations of clustering using affinity propagation and k-means clustering of 200 random bootstrap replicates of PCA per sample._
 
-```{r echo=F, warning=F, message=F, error=F, fig.height=5, fig.width=12}
+***
+
+**Fig 12. Top ten loadings (absolute value) for the first four principal components**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=10, fig.width=14}
 #1. Selecting PC1 and PC2 and adding gene names 
 DT_loadings <- data.table(SYMBOL=gene_variance_top500[,SYMBOL], DT_principal_comp_raw$rotation[,(1:2)])
-
 #2. Creating table data
 DT_loadings_sub_function <- function(data.load, pc.type, n){
   load_out <- data.load[,.(SYMBOL, get(pc.type))][order(V2)]
@@ -864,7 +883,6 @@ DT_loadings_plotdata <- rbind(DT_loadings_sub_function(DT_loadings[!is.na(SYMBOL
 
 #3. Adding a type variable for plotting purposes
 DT_loadings_plotdata <- DT_loadings_plotdata[,sign.type:=factor(ifelse(PC.value>0,"pos","neg"))]
-
 #4. Plotting function [traditional barplot]
 DT_loadings_plot_function <- function(data.set.loading, pc.type){
   data.set.loading <- data.set.loading[PC.type==pc.type]
@@ -892,38 +910,35 @@ DT_loadings_plot_function <- function(data.set.loading, pc.type){
 }
 
 #5. Plotting loadingsdata [Circular barplot]
-#Selecting 500 genes with highest variance
+#A. Selecting 500 most variable genes
 loadings_data_circular <- data.table(SYMBOL=gene_variance_top500[,SYMBOL], DT_principal_comp_raw$rotation[,(1:4)])
-#Converting PC-value to absolute values
+#B. Converting PC-value to absolute values
 loadings_data_circular[,2:5] <- loadings_data_circular[, lapply(.SD, function(column){abs(column)}), .SDcols=names(loadings_data_circular)[2:5]]
-#Sorting each principal component separately
+#C. Sorting each principal component separately
 loadings_data_circular_melt <- do.call(rbind, lapply(c(names(loadings_data_circular)[2:5]), function(column){loadings_data_circular[, .(SYMBOL, get(column))][order(-V2)][,PC:=substr(column, 3, 3)][1:10]}))
 names(loadings_data_circular_melt) <- c("SYMBOL", "value", "PC")
-#Converting PC to a factor variable
+#D. Converting PC to a factor variable
 loadings_data_circular_melt[, "PC"] <- factor(loadings_data_circular_melt[, PC])
-
-#Arranging data for plotting
+#E. Arranging data for plotting
 empty_bar <- 3
-to_add <-  data.table(matrix(NA, empty_bar*nlevels(loadings_data_circular_melt$PC), ncol(loadings_data_circular_melt)))
-names(to_add) <-  colnames(loadings_data_circular_melt)
+to_add <- data.table(matrix(NA, empty_bar*nlevels(loadings_data_circular_melt$PC), ncol(loadings_data_circular_melt)))
+names(to_add) <- colnames(loadings_data_circular_melt)
 to_add$PC <- rep(levels(loadings_data_circular_melt$PC), each=empty_bar)
 loadings_data_circular_melt <- rbind(loadings_data_circular_melt, to_add)
 loadings_data_circular_melt <- loadings_data_circular_melt[order(PC)]
 loadings_data_circular_melt$id=seq(1, nrow(loadings_data_circular_melt))
-#Adjusting values for easier plotting
+#F. Adjusting values for easier plotting
 loadings_data_circular_melt[, value:=value*100]
-
-# Get the name and the y position of each label
+#G. Get the name and the y position of each label
 label_data <- loadings_data_circular_melt
 number_of_bar <- nrow(label_data)
 angle <- 90 - 360 * (label_data$id-0.5) /number_of_bar 
 label_data$hjust<-ifelse(angle < -90, 1, 0)
 label_data$angle<-ifelse(angle < -90, angle+180, angle)
-
-#Prepare a data frame for base lines
+#H. Prepare a data frame for base lines
 base_data <- loadings_data_circular_melt[, .(start=min(id), end=max(id)-empty_bar), by="PC"]
 base_data[, title:=apply(base_data[, 2:3], 1, mean)]
-
+#I. Creating the plot
 circular_loadings_plot <-  ggplot(loadings_data_circular_melt, aes(x=as.factor(id), y=value, fill=PC))+
   geom_bar(aes(x=as.factor(id), y=value, fill=PC), stat="identity", alpha=0.5)+
   annotate("text", x = rep(max(loadings_data_circular_melt$id), 4), y = seq(0, 12, 4), label = c("0", "0.1", "0.2", "0.3") , color="grey", size=3, angle=0, fontface="bold", hjust=1)+
@@ -942,20 +957,24 @@ circular_loadings_plot <-  ggplot(loadings_data_circular_melt, aes(x=as.factor(i
   scale_fill_manual(values=color_palette_RdBu[c(1,2,6,7)])
 
 ###SECTION OUTPUT
-grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
-
 circular_loadings_plot
-
-# #Saving loadings plot for PC1
-# ggsave("loadings_plot.jpg",DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), dpi=1000, width=14, height=7)
-
 ```
 
-**Fig 7.** _Figure reports the top 10 positive and negative loadings for the first -and second principal component._ 
+**Fig 12.** _Figure reports the top ten loadings (genes) using absolute values for the first four principal components._
+
+**Fig 13. Top 10 positive and negative loadings for the first -and second principal component**
+
+```{r echo=F, warning=F, message=F, error=F, fig.height=5, fig.width=14}
+grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
+```
+
+**Fig 13.** _Figure reports the top 10 positive and negative loadings for the first -and second principal component._
+
 ***
+
 #Negative Binominal Dispersions by Weighted Likelihood Empirical Bayes  
 
-**Fig 9. Cox-Reid profile-adjusted likelihood estimated tagwise, common and trended dispersions**
+**Fig 14. Cox-Reid profile-adjusted likelihood estimated tagwise, common and trended dispersions**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5} 
 #1. Setting up a design matrix (a dummy matrix indicating which group each sample belongs to)
@@ -991,9 +1010,30 @@ plot_dispersion
 
 ```
 
-**Fig 9. ** _Figure reports tagwise, common and trended dispersions._
+**Fig 14. ** _Figure reports tagwise, common and trended dispersions._
 
 ***
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```{r echo=F, warning=F, message=F, error=F}
 ########################################### Removing heteroscedasticity ############################################
@@ -1091,6 +1131,7 @@ DT_toptableF_circularpacking <- graph_from_data_frame(DT_toptableF_circularpacki
 #8. Adding ID and group identities to data frame 
 DT_toptableF_circularpacking <- circular_packing_data_adjust(DT_toptableF_circularpacking, 22, c(133, 131, 129, 134, 135, 132, 130, 136, 122, 101, 103, 126, 123, 124, 125, 127, 108, 102, 104, 106, 105, 107))
 
+
 hierarchical_clustering_circular_Fstatistica <- ggraph(DT_toptableF_circularpacking, layout='circlepack')+
   geom_node_circle(aes(fill = as.factor(depth), color = as.factor(depth)), alpha=0.6)+
   scale_fill_manual(values=c("0"="white", "1"="white", "2"=color_palette_RdBu[2], "3"=color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7], "8"=color_palette_RdBu[8]))+
@@ -1101,9 +1142,15 @@ hierarchical_clustering_circular_Fstatistica <- ggraph(DT_toptableF_circularpack
   geom_node_text(aes(label=ID, filter=leaf), size=2.5, fontface=2)
 
 #SECTION OUTPUT
-myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)
+dev.off()
+par(mfrow=c(1,2))
 
-hierarchical_clustering_circular_Fstatistica
+grid.arrange(arrangeGrob(
+  
+grob(myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)),
+
+hierarchical_clustering_circular_Fstatistica, ncol=2))
+
 ```
 
 ***
@@ -1355,9 +1402,9 @@ heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_
 
 ```
 
-```{r echo=F, warning=F, message=F, error=F, fig.width=30, fig.height=30}
+```{r echo=F, warning=F, message=F, error=F, fig.width=7, fig.height=10}
 #1. Retrieving data from
-heatmap_data <- invisible(heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))]))
+invisible(heatmap_data <- heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))]))
 #2. Changing column order to match heatmap layout
 DT_logFC_significant_lcpm_heatmap <- setcolorder(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)], heatmap_data$colInd)
 DT_logFC_significant_lcpm_heatmap <- cbind(DT_logFC_significant_lcpm[, c(1,2)], DT_logFC_significant_lcpm_heatmap)
@@ -1366,7 +1413,7 @@ DT_logFC_significant_lcpm_heatmap <- DT_logFC_significant_lcpm_heatmap[, row_sor
 DT_logFC_significant_lcpm_heatmap <- DT_logFC_significant_lcpm_heatmap[order(row_sort_temp)]
 DT_logFC_significant_lcpm_heatmap[, row_sort_temp:=NULL]
 #4. Identifying the significant cluster
-h <- heatmap(as.matrix(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)]), keep.dendro=TRUE)
+invisible(h <- heatmap(as.matrix(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)]), keep.dendro=TRUE))
 row.clusters <- as.hclust(h$Rowv)
 row.clusters <- cutree(row.clusters, k=13)
 cluster_index <- c(rep(1, 562), rep(2, 848), rep(3, 496), rep(4, 141), rep(5, 64), rep(6, 937), rep(7,66))
@@ -1388,7 +1435,7 @@ test <- matrix(with(test, table(group, cluster)), ncol=7)
 colnames(test) <- paste(rep("C", 7), 1:7, sep=":") 
 rownames(test) <- c("In vitro", "Naive", "SCI")
 
-dev.off()
+
 grid_col <- c(`In vitro` = color_palette[1], Naive = color_palette[3], SCI = color_palette[2],
     `C:1` = chord_palette_cluster[10], `C:2` = chord_palette_cluster[8], `C:3` = chord_palette_cluster[10], `C:4` = chord_palette_cluster[8], `C:5` = chord_palette_cluster[10], `C:6` = chord_palette_cluster[8], `C:7`=chord_palette_cluster[10])
 circos.par(gap.after = c(rep(5, nrow(test)-1), 15, rep(5, ncol(test)-1), 15))
@@ -1405,7 +1452,6 @@ chordDiagram(test,
              link.rank = rank(test),
              annotationTrack = c("name","grid"))
 circos.clear()
-
 
 ```
 
@@ -1480,14 +1526,6 @@ camera_function <- function(selected.index, type){
 #      width=750,height=400, quality=1000)
 
 ```
-
-```{r echo=F, warning=F, message=F, error=F}
-#1. Select genes in clusters -> rank on logFC and p-value -> for sci/naive comparison. 
-
-
-```
-
-
 
 #Summary
 
