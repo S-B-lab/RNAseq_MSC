@@ -143,7 +143,7 @@ DT_read_count <- fread("merged_gene_counts.txt", header=T)
 #2. Adjusting column names 
 names(DT_read_count) <- c(names(DT_read_count)[1], do.call(rbind, lapply(names(DT_read_count)[2:length(names(DT_read_count))], function(col_name){substr(col_name, 7, 9)})))
 #3. Retrieving gene annotations (SYMBOL) based on ENSEMBL_ID
-gene_annotations <- data.table(OrganismDbi::select(Mus.musculus, keys=DT_read_count[,as.character(ENSEMBL_ID)], columns="SYMBOL", keytype = "ENSEMBL"))
+gene_annotations <- suppressMessages(data.table(OrganismDbi::select(Mus.musculus, keys=DT_read_count[,as.character(ENSEMBL_ID)], columns="SYMBOL", keytype = "ENSEMBL")))
 #4. Removing duplicates in retrieved annotations
 gene_annotations <- gene_annotations[!duplicated(ENSEMBL)]
 #5. Merging gene annotations with read_count_matrix 
@@ -435,7 +435,7 @@ tSNE_plot <- function(legend_status){
   scale_color_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
   scale_shape_manual(values=c(18,17,16), labels=group_names)+
   scale_fill_manual(values=brewer.pal(11,"RdBu")[c(1,2,10)], labels=group_names)+
-  scale_x_continuous(breaks=seq(-100, 150, 10))+
+  scale_x_continuous(breaks=seq(-100, 150, 20))+
   scale_y_continuous(breaks=seq(-100, 100, 10))+
   
   theme(legend.title=element_blank(), legend.position=legend_status, legend.text=element_text(size=20), legend.justification="center", axis.title=element_text(size=22, face="bold"), axis.line=element_blank(), axis.ticks=element_blank())+
@@ -472,6 +472,8 @@ grid.arrange(arrangeGrob(arrangeGrob(PCA_plot, tSNE_plot("none"), ncol=2), PCA_t
 
 ```
 
+**Fig 5.** _Fig text_
+
 **Fig 6. Dimensionality reduction using PCA and t-SNE of the 500 genes with highest variance reporting three first components/variables**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
@@ -485,7 +487,7 @@ scatter3D_fancy(DT_principal_comp$PC1, DT_principal_comp$PC2, DT_principal_comp$
             xlab="PC1",
             ylab="PC2",
             zlab="PC3",
-            phi=20,
+            phi=0,
             main="PCA",
             cex=4, 
             cex.main=3, 
@@ -500,13 +502,15 @@ scatter3D_fancy(tSNE_plot_data$V1, tSNE_plot_data$V2, tSNE_plot_data$V3,
             xlab="V1",
             ylab="V2",
             zlab="V3",
-            phi=20,
+            phi=0,
             main="t-SNE",
             cex=4,
             cex.main=3, 
             cex.lab=2)
 
 ```
+
+**Fig 6.** _figure text_
 
 **Fig 7. Dimensionality reduction using PCA of the 500 genes with highest variance reporting three first components on 1000 bootstrap replicates of dimensionality reduction**
 
@@ -533,7 +537,7 @@ scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3,
             xlab="PC1",
             ylab="PC2",
             zlab="PC3",
-            phi=20,
+            phi=0,
             main="Bootstrap PCA",
             cex=2,
             theta=30,
@@ -549,7 +553,7 @@ scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3,
             xlab="PC1",
             ylab="PC2",
             zlab="PC3",
-            phi=20,
+            phi=0,
             main="Bootstrap PCA",
             cex=0,
             theta=30,
@@ -557,6 +561,8 @@ scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3,
             cex.lab=2)
 
 ```
+
+**Fig 7.** _figure text_
 
 ```{r echo=F, warning=F, message=F, error=F}
 ########################################### UNSUPERVISED LEARNING (all other methods) ############################################
@@ -635,13 +641,11 @@ names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
 ###SECTION OUTPUT
 dimension_legend <- get_legend(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom"))
 
-grid.arrange(arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), dimension_plot_function(MDS_classical_fit, "Multidimensioanl Scaling\[classical]"), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(dimension_plot_function(MDS_classical_fit, "Multidimensional Scaling\n[classical]"),dimension_plot_function(MDS_nonmetric_fit, "Multidimensional scaling\n[nonmetric]"), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
-grid.arrange(arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Multidimensional scaling\n[nonmetric]"), dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Singular Value Decomposition", textboolean = T), dimension_plot_function(MLFA_plot_data, "Maximum Likelihood\nFactor Analysis", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(5,1)))
-
-
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Singular Value\nDecomposition", textboolean = T), dimension_plot_function(MLFA_plot_data, "Maximum Likelihood\nFactor Analysis", textboolean = T), ncol=2), dimension_legend, nrow=2, heights=c(5,1)))
 
 ```
 
@@ -649,18 +653,18 @@ grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Sin
 
 #Clustering Algorithms
 
-* Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
-* Mean-shift
-* Spectral clustering
-* KNN
-* Affinity propagation
-* K-means
-* Support vector machine
-* Hierarchical clustering
+* **Expectation maximisation (EM) using Gaussian Mixture Models (GMM):**
+* **Mean-shift:**
+* **Spectral clustering:**
+* **K-Nearest Neighbour:** Training part consists of storing the class labels of the training samples. Each sample in the test set is then compared to its k-nearest neighbours and assigned the class which is in majority. 
+* **Affinity propagation:** Does not require the user to pre-determine the number of clusters. 
+* **K-means:** Randomly assign k-number of centroids in the plane. Calculate the distance from each observation to each centroid. Assign the closest centroid/class to each observation. Select the least distant observation from the centroid as the new centroid and repeat the procedure. For precision the algorithm has to be initiated a couple of times since the initial centroid assignment in random.  
+* **Support vector machine:**
+* **Hierarchical clustering:**
 
 **Fig 9. Hierarchical clustering of samples using 500 most variable genes**
 
-```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=10}
+```{r echo=F, warning=F, message=F, error=F, fig.height=5, fig.width=14}
 #1. Expectation maximisation (EM) using Gaussian Mixture Models (GMM)
 EM_cluster_function <- function(data_set){
   emobj <- simple.init(data_set, nclass=3)
@@ -764,7 +768,7 @@ DT_hclust_circularpacking <- circular_packing_data_adjust(DT_hclust_circularpack
 #5. Creating the circular packing plot
 color_palette_RdBu <- brewer.pal(11, "RdBu")[c(1:4, 9:11)]
 
-hierarchical_clustering_circular_500 <- ggraph(DT_hclust_circularpacking, layout='circlepack')+
+hierarchical_clustering_circular_1000 <- ggraph(DT_hclust_circularpacking, layout='circlepack')+
   geom_node_circle(aes(fill = as.factor(depth), color = as.factor(depth)), alpha=0.6)+
   scale_fill_manual(values=c("0"="white", "1"="white", "2"=color_palette_RdBu[2], "3"=color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7]))+
   scale_color_manual(values=c("0" = "white", "1" = "white", "2" = color_palette_RdBu[2], "3" = color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7]))+
@@ -774,7 +778,6 @@ hierarchical_clustering_circular_500 <- ggraph(DT_hclust_circularpacking, layout
   geom_node_text(aes(label=group, filter=leaf), size=2.5, fontface=2)
 
 ### SECTION OUTPUT
-dev.off()
 par(mfrow=c(1,2))
 
 grid.arrange(arrangeGrob(
@@ -840,7 +843,7 @@ scatter3D_fancy(AP_PCA_boot$PC1, AP_PCA_boot$PC2, AP_PCA_boot$PC3, colvar = as.i
             ylab="PC2",
             zlab="PC3",
             phi=0,
-            main="Bootstrap PCA\n[Affinity Propagation Clustering]",
+            main="Bootstrap PCA\n[Affinity Propagation]",
             cex=2,
             cex.main=2.5, 
             cex.lab=2)
@@ -853,7 +856,7 @@ scatter3D_fancy(KM_PCA_boot$PC1, KM_PCA_boot$PC2, KM_PCA_boot$PC3, colvar = as.i
             ylab="PC2",
             zlab="PC3",
             phi=0,
-            main="Bootstrap PCA\n[K-means Clustering]",
+            main="Bootstrap PCA\n[K-means]",
             cex=1,
             cex.main=2.5, 
             cex.lab=2)
@@ -866,7 +869,7 @@ scatter3D_fancy(KM_PCA_boot$PC1, KM_PCA_boot$PC2, KM_PCA_boot$PC3, colvar = as.i
 
 **Fig 12. Top ten loadings (absolute value) for the first four principal components**
 
-```{r echo=F, warning=F, message=F, error=F, fig.height=10, fig.width=14}
+```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=12}
 #1. Selecting PC1 and PC2 and adding gene names 
 DT_loadings <- data.table(SYMBOL=gene_variance_top500[,SYMBOL], DT_principal_comp_raw$rotation[,(1:2)])
 #2. Creating table data
@@ -1014,27 +1017,6 @@ plot_dispersion
 
 ***
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r echo=F, warning=F, message=F, error=F}
 ########################################### Removing heteroscedasticity ############################################
 ```
@@ -1110,19 +1092,19 @@ grid.arrange(voom_plot, bayes_plot, ncol=2, nrow=1, bottom=textGrob("Average log
 
 **Fig 10.** _Figure reports the mean-variance relationship pre -and post application of the voom function. Fig 9A reports the average log-CPM against the quarter root of the variance. Fig 9B reports average log-CPM against the log2(st.dev). Blue line reports the average log2(st.dev). The red line is a linear trend fitted to the black dots. Each black dot represents a gene. Fig 9A illustrates that the variance is decresing when the average expression is increasing. In Fig 9B the dependency is removed and the mean variance is unchanged when the average expression increases._      
 
-```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=5}
+```{r echo=F, warning=F, message=F, error=F, fig.width=14, fig.height=5}
 #Hierarchical clustering of the 1000 genes with highest F-value
 #1. Calculating F-statistica
 DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
 #2. Subsetting the 500 genes with the highest F-statistica
-DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1000, ProbeID]
+DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1100, ProbeID]
 #3. Retrieving log-CPM values for the genes
 DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
-#4. Creating a dissimilarity structure
+#4. Creating a dissimilarity matrix
 DT_toptableF <- dist(t(DT_toptableF[,-(1:2)]))
 #5. Hierarchical clustering  
 DT_toptableF <- hclust(DT_toptableF)
-#6. Creating dataset for circular packing representation
+#6. Creating dataset for circular packing plot
 DT_toptableF_phylo <- as.phylo(DT_toptableF)
 DT_toptableF_edges <- DT_toptableF_phylo$edge
 #7. Creating data frame and graph data from the data frame
@@ -1130,8 +1112,7 @@ DT_toptableF_circularpacking <- data.frame(from=DT_toptableF_edges[,1], to=DT_to
 DT_toptableF_circularpacking <- graph_from_data_frame(DT_toptableF_circularpacking)
 #8. Adding ID and group identities to data frame 
 DT_toptableF_circularpacking <- circular_packing_data_adjust(DT_toptableF_circularpacking, 22, c(133, 131, 129, 134, 135, 132, 130, 136, 122, 101, 103, 126, 123, 124, 125, 127, 108, 102, 104, 106, 105, 107))
-
-
+#9. Creating the circular packing plot
 hierarchical_clustering_circular_Fstatistica <- ggraph(DT_toptableF_circularpacking, layout='circlepack')+
   geom_node_circle(aes(fill = as.factor(depth), color = as.factor(depth)), alpha=0.6)+
   scale_fill_manual(values=c("0"="white", "1"="white", "2"=color_palette_RdBu[2], "3"=color_palette_RdBu[3], "4"=color_palette_RdBu[4], "5"=color_palette_RdBu[5], "6"=color_palette_RdBu[6], "7"=color_palette_RdBu[7], "8"=color_palette_RdBu[8]))+
@@ -1139,10 +1120,9 @@ hierarchical_clustering_circular_Fstatistica <- ggraph(DT_toptableF_circularpack
   
   theme_void()+
   theme(legend.position="FALSE")+
-  geom_node_text(aes(label=ID, filter=leaf), size=2.5, fontface=2)
+  geom_node_text(aes(label=group, filter=leaf), size=2, fontface=2)
 
-#SECTION OUTPUT
-dev.off()
+###SECTION OUTPUT
 par(mfrow=c(1,2))
 
 grid.arrange(arrangeGrob(
@@ -1163,16 +1143,13 @@ hierarchical_clustering_circular_Fstatistica, ncol=2))
 ```{r echo=F, warning=F, message=F, error=F, fig.show='hide'}
 #1. Summarizing the number of up - and downregulated differentially expressed genes
 DT_dge <- decideTests(DT_efit, adjust.method = "BH")
-
 #2. Converting DT_dge into logical (-1 and 1 is TRUE and 0 is FALSE) 
-venn_data_logical <- do.call(cbind,lapply(data.table(DT_dge), function(column){column!=0}))
-
+venn_data_logical <- do.call(cbind, lapply(data.table(DT_dge), function(column){column!=0}))
 #3. Function for retrieving data to add to venndiagram
 venn_data_function <- function(data.set, c1=NULL, c2=NULL, c3=NULL){
   out <- sum(rowSums(data.set[,c(c1, c2, c3)]) %in% length(c(c1, c2, c3)))
   return(out)
 }
-
 #4. Venn diagram: injured only 
 venn_plot <- invisible(draw.triple.venn(sum(venn_data_logical[,1]), 
                sum(venn_data_logical[,2]), 
@@ -1181,7 +1158,7 @@ venn_plot <- invisible(draw.triple.venn(sum(venn_data_logical[,1]),
                venn_data_function(venn_data_logical,2,3),
                venn_data_function(venn_data_logical,1,3),
                venn_data_function(venn_data_logical,1,2,3),
-               category=c("MSC[SCI] - MSC[naive]", "MSC[SCI] - MSC[invitro]", "MSC[naive] - MSC[invitro]"),
+               category=c("MSC[SCI] - MSC[Naive]", "MSC[SCI] - MSC[in vitro]", "MSC[Naive] - MSC[in vitro]"),
                lwd=c(2,2,2),
                fill=brewer.pal(11,"RdBu")[c(2,4,9)],
                alpha=0.7,
@@ -1207,8 +1184,10 @@ grid.arrange(arrangeGrob(gTree(children=venn_plot)))
 ```{r echo=F, warning=F, message=F, error=F, fig.width=15, fig.height=6, fig.align='center'}
 #Summary table
 DT_dge_summary <- as.data.frame.matrix(summary(DT_dge))
-rownames(DT_dge_summary) <- c("Downregulated:", "No change", "Upregulated:")
+DT_dge_summary <- rbind(DT_dge_summary, colSums(DT_dge_summary))
+rownames(DT_dge_summary) <- c("Downregulated:", "No change", "Upregulated:", "Sum:")
 kable(DT_dge_summary, col.names = c("MSC[SCI]-MSC[naive]", "MSC[SCI]-MSC[invitro]", "MSC[naive]-MSC[invitro]"), align="c")
+
 ```
 
 **Fig 12. Mean difference -and volcano plot**
@@ -1221,12 +1200,12 @@ DT_mean_difference <- DT_mean_difference[!is.na(ID)]
 #2. Plotting mean-difference
 mean_difference_plot <- ggplot(DT_mean_difference, aes(AveExpr,logFC))+
   geom_jitter(DT_mean_difference[(logFC>(-1) & logFC<1)], mapping=aes(AveExpr, logFC), alpha=0.7, size=3)+
-  geom_jitter(DT_mean_difference[(logFC<=(-1) | logFC >=1) & adj.P.Val>0.05], mapping=aes(AveExpr, logFC), color="dodgerblue4", alpha=0.8, size=3)+
-  geom_jitter(DT_mean_difference[(logFC<=(-1) | logFC>=1) & adj.P.Val<0.05], mapping=aes(AveExpr, logFC), color="red", alpha=0.5, size=3)+
+  geom_jitter(DT_mean_difference[(logFC<=(-1) | logFC>=1) & adj.P.Val>1e-6], mapping=aes(AveExpr, logFC), color="dodgerblue4", alpha=0.8, size=3)+
+  geom_jitter(DT_mean_difference[(logFC<=(-1) | logFC>=1) & adj.P.Val<1e-6], mapping=aes(AveExpr, logFC), color="red", alpha=0.5, size=3)+
   geom_segment(aes(x=-5, xend=15, y=-1,yend=-1), size=1.5, color="dodgerblue2", linetype=2)+
   geom_segment(aes(x=-5, xend=15, y=1,yend=1), size=1.5, color="dodgerblue2", linetype=2)+
   
-  annotate("text", x=12, y=5.5, label=nrow(DT_mean_difference[logFC >=1 & adj.P.Val>0.05]), color="dodgerblue4", fontface=2, alpha=0.8, size=4.5)+
+  annotate("text", x=12, y=5.5, label=nrow(DT_mean_difference[logFC>=1 & adj.P.Val>0.05]), color="dodgerblue4", fontface=2, alpha=0.8, size=4.5)+
     annotate("text", x=12, y=-5.5, label=(nrow(DT_mean_difference[logFC<=-1 & adj.P.Val>0.05])+2), color="dodgerblue4", fontface=2, alpha=0.8, size=4.5)+
 
   annotate("text", x=12, y=-3.5, label=(nrow(DT_mean_difference[logFC<=-1 & adj.P.Val<0.05])+2), color="red", fontface=2, alpha=0.8, size=4.5)+
@@ -1258,13 +1237,13 @@ DT_volcano <- merge(DT_mean_difference, volcano_temp, by="ID")
 
 #3. Plotting function for volcano plot
 volcano_plot <- ggplot(DT_volcano,aes(logFC,log.odds))+
-  geom_jitter(DT_volcano[!(log.odds>1 & (logFC>=1 | logFC<=(-1)))], mapping=aes(logFC, log.odds), alpha=0.7, size=3)+
+  geom_jitter(DT_volcano[log.odds<1 & (logFC>=1 | logFC<=(-1))], mapping=aes(logFC, log.odds), alpha=0.7, size=3, color="dodgerblue4")+
+  geom_jitter(DT_volcano[!(logFC>=1 | logFC<=(-1))], mapping=aes(logFC, log.odds), alpha=0.7, size=3)+
   geom_jitter(DT_volcano[log.odds>1 & (logFC>=1 | logFC<=(-1))], mapping=aes(logFC, log.odds), color="red", alpha=0.5, size=3)+
+  
   geom_segment(aes(x=-1, xend=-1, y=-8,yend=8), size=1.5, color="dodgerblue2", linetype=2)+
   geom_segment(aes(x=1, xend=1, y=-8,yend=8), size=1.5, color="dodgerblue2", linetype=2)+
   geom_segment(aes(x=-7, xend=6, y=1, yend=1), size=0.5, color="dodgerblue2")+
-  
-  #geom_text_repel(DT_volcano[adj.P.Val<0.05 & (logFC<1 | logFC>1)][1:10], mapping=aes(label=ID), size = 6,  box.padding = unit(0.75, "lines"), point.padding = unit(0.1, "lines"), fontface=2, nudge_y = 1)+
   
   scale_y_continuous(breaks=seq(-10,50,5))+
   scale_x_continuous(breaks=seq(-7,6,1), limits=c(-7,6))+
@@ -1272,13 +1251,13 @@ volcano_plot <- ggplot(DT_volcano,aes(logFC,log.odds))+
   ylab("-log10(p.value)")+
   xlab("Log2(fold change)")+
   
-  annotate("text", x=4, y=50, label="UP-REGULATION", fontface=2, alpha=0.6, size=4)+
-  annotate("text", x=-4, y=50, label="DOWN-REGULATION", fontface=2, alpha=0.6, size=4)+
+  annotate("text", x=4, y=50, label="UP-REGULATION", fontface=2, alpha=0.6, size=5)+
+  annotate("text", x=-4, y=50, label="DOWN-REGULATION", fontface=2, alpha=0.6, size=5)+
   annotate("text", x=-7, y=50, label="B", fontface=2, size=7.5)+
   
   theme(axis.title = element_text(face="bold", size=22))
 
-####SECTION OUTPUT
+###SECTION OUTPUT
 plot_grid(mean_difference_plot, volcano_plot)
 
 # ggsave("mean_difference_plot.jpg",mean_difference_plot, dpi=1000, height=7, width=14)
@@ -1286,21 +1265,22 @@ plot_grid(mean_difference_plot, volcano_plot)
 
 ```
 
-**Fig 12.** _Figure 11A reports a mean-difference plot which illustrates the number of over -and under expressed genes. Threshold is set at log2(fold change) +/-1 (blue lines). Blue dots represents genes above or below the log-fold change thresholds while red dots represent those genes which are above/below the thresholds and are significantly differentially expressed. Fig 11B is a volcano plot which reports the number of significantly over -and underexpressed genes (marked with red). Data in both plots is for the contrast "MSC[SCI] vs MSC[naive]"._
+**Fig 12.** _Figure 11A reports a mean-difference plot which illustrates the number of over -and under expressed genes. Threshold is set at log2(fold change) +/-1 (blue lines). Blue dots represents genes above or below the log-fold change thresholds while red dots represent those genes which are above/below the thresholds and are significantly (p<1e-6) differentially expressed. Fig 11B is a volcano plot which reports the number of significantly (p<1e-6) over -and underexpressed genes (marked with red). Blue dots represent genes which have logFC <-1 or >1 but are not significantly expressed. Data in both plots is for the contrast "MSC[SCI] vs MSC[naive]"._
 
 **Table 4. 10 most significantly up -and downregulated differentially expressed genes**
 
 ```{r echo=F, warning=F, message=F, error=F}
-#Retrieving logFc and associated p-values for all genes
+#1. Function for retrieving logFC and associated p-values for most over -and underexpressed genes 
 top_20_dge_retreiver <- function(dge.data, n, p.val.cutoff){
-  top_20_dge_out <- data.table(toptable(dge.data, coef=1, number=Inf, genelist = DT_read_count_filtered[,ifelse(is.na(SYMBOL),ENSEMBL_ID, SYMBOL)]))
-  top_20_dge_out <- top_20_dge_out[,.(ID, logFC=round(logFC,2), adj.P.Val=round(adj.P.Val, 4))]
+  top_20_dge_out <- data.table(toptable(dge.data, coef=1, number=Inf, genelist = DT_read_count_filtered[,ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL)]))
+  top_20_dge_out <- top_20_dge_out[,.(ID, logFC=round(logFC, 2), adj.P.Val=format(adj.P.Val, scientific=T, digits=2))]
   top_20_dge_out <- data.table(top_20_dge_out[logFC<-1 & adj.P.Val<p.val.cutoff][1:n], top_20_dge_out[logFC>1 & adj.P.Val<p.val.cutoff][1:n])
   return(top_20_dge_out)
 }
 
 ###SECTION OUTPUT
-kable(top_20_dge_retreiver(DT_efit,10,0.05), align="c", col.names = rep(c("Gene", "log2(fold change)","P-value (adjusted)"),2))
+kable(top_20_dge_retreiver(DT_efit, 10, 1e-6), align="c", col.names = rep(c("Gene", "log2(fold change)", "P-value (adjusted)"), 2))
+
 ```
 
 ***
@@ -1311,24 +1291,24 @@ kable(top_20_dge_retreiver(DT_efit,10,0.05), align="c", col.names = rep(c("Gene"
 
 **KEGG (Kyoto Encyclopedia of Genes and Genomes):** KEGG pathway are manually drawn pathway maps which represent the current knowledge within metabolism, cellular processes and many more.  
 
-**Table 4. GO terms and KEGG pathways**
+**Table 4. GO terms and KEGG pathways using FDR<1e-6**
 
 ```{r echo=F, warning=F, message=F, error=F,fig.width=17, fig.height=7}
 #1. Getting ENTREZ IDs for all genes in the filtered read count matrix 
-entrez_ID <- data.table(OrganismDbi::select(Mus.musculus, keys=DT_read_count_filtered[,as.character(ENSEMBL_ID)], columns="ENTREZID", keytype = "ENSEMBL"))
-
+entrez_ID <- suppressMessages(data.table(OrganismDbi::select(Mus.musculus, keys=DT_read_count_filtered[,as.character(ENSEMBL_ID)], columns="ENTREZID", keytype = "ENSEMBL")))
 #2. Removing duplicates
 entrez_ID <- entrez_ID[!duplicated(ENSEMBL)]
-
 #3. Gene ontology enrichment analysis
-DT_GO <- goana(DT_efit, coef=1, geneid = entrez_ID[,as.character(ENTREZID)], FDR=0.05, species="Mm")
+DT_GO <- goana(DT_efit, coef=1, geneid = entrez_ID[,as.character(ENTREZID)], FDR=1e-6, species="Mm")
 DT_GO_top <- data.table(topGO(DT_GO, sort="down", n=10))
-
 #4. KEGG pathway enrichment analysis
-DT_KEGG <- kegga(DT_efit, coef=1, geneid = entrez_ID[,as.character(ENTREZID)], FDR=0.05, species="Mm")
+DT_KEGG <- kegga(DT_efit, coef=1, geneid = entrez_ID[,as.character(ENTREZID)], FDR=1e-6, species="Mm")
 DT_KEGG_top <- data.table(topKEGG(DT_KEGG, sort="down", n=10))
 
 ###SECTION OUTPUT
+DT_GO_top[, `:=`(P.Down=format(P.Down, scientific=T, digits=2), P.Up=format(P.Up, scientific=T, digits=2))]
+DT_KEGG_top[, `:=`(P.Down=format(P.Down, scientific=T, digits=2), P.Up=format(P.Up, scientific=T, digits=2))]
+
 kable(data.table(Type="GO", DT_GO_top), align=c("l", "l", rep("c", 6)))
 kable(data.table(Type="KEGG", DT_KEGG_top), align=c("l", "l", rep("c", 6)))
 
@@ -1347,14 +1327,14 @@ kable(data.table(Type="KEGG", DT_KEGG_top), align=c("l", "l", rep("c", 6)))
 **Fig 13. Hierarchical clustering of samples together with heatmap of significantly differentially expressed genes **
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=30, fig.height=30}
-#1. Subsetting data up to 100 most significant DE genes between allogenic and syngeneic (coef=4)
-DT_logFC <- data.table(toptable(DT_efit, coef=1, number=Inf, genelist = DT_read_count_filtered[,ENSEMBL_ID]))
+#1. Subsetting significant DE genes between MSC[SCI] and MSC[naive] 
+DT_logFC <- data.table(toptable(DT_efit, coef=1, number=Inf, genelist=DT_read_count_filtered[, ENSEMBL_ID]))
 DT_logFC <- merge(DT_logFC, DT_read_count[,.(ENSEMBL_ID, SYMBOL)], by.x="ID", by.y="ENSEMBL_ID")
 DT_logFC_significant <- DT_logFC[adj.P.Val<1e-6]
-setcolorder(DT_logFC_significant, c(1,7,2:6))
+setcolorder(DT_logFC_significant, c(1, 7, 2:6))
 DT_logFC_significant[,"SYMBOL"] <- DT_logFC_significant[,.(ifelse(is.na(SYMBOL), ID, SYMBOL))]
 
-#2. Retrieving the most significant genes from the log CPM matrix (i.e. heatmap is constructed using log CPm values)
+#2. Retrieving the most significant genes from the log CPM matrix (i.e. heatmap is constructed using log CPM values)
 DT_logFC_significant_lcpm <- DT_lcpm[DT_lcpm[,ENSEMBL_ID] %in% DT_logFC_significant[,ID]]
 
 #3. Heatmap function
@@ -1368,7 +1348,6 @@ heatmap_plot_function <- function(heatmap.data, col.height, column.labels, dendr
             key=F,
             
             col=bluered(12),
-            #labRow = row.labels,
             labRow = " ",
             labCol= column.labels,
             cexCol = 3,
@@ -1376,7 +1355,6 @@ heatmap_plot_function <- function(heatmap.data, col.height, column.labels, dendr
             offsetRow = 0.1,
             offsetCol = 0.1,
             
-            #margin=c(19,20),
             lhei=c(col.height,10),
             lwid=c(0.5,3))
   
@@ -1402,43 +1380,61 @@ heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_
 
 ```
 
+**Fig 14.** _Figure reports a heatmap with hierarchical clustering (indicated with dendrograms) using log-CPM values. Only significantly differentially expressed genes are included (and genes with NA symbols were removed)._ 
+
 ```{r echo=F, warning=F, message=F, error=F, fig.width=7, fig.height=10}
-#1. Retrieving data from
-invisible(heatmap_data <- heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))]))
+invisible(dev.off())
+#1. Retrieving data from heatmap
+heatmap_data <- heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))])
 #2. Changing column order to match heatmap layout
 DT_logFC_significant_lcpm_heatmap <- setcolorder(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)], heatmap_data$colInd)
 DT_logFC_significant_lcpm_heatmap <- cbind(DT_logFC_significant_lcpm[, c(1,2)], DT_logFC_significant_lcpm_heatmap)
-#3. Changing row order to match layout of heatmap
+#3. Changing row order to match heatmap layout
 DT_logFC_significant_lcpm_heatmap <- DT_logFC_significant_lcpm_heatmap[, row_sort_temp:=heatmap_data$rowInd]
 DT_logFC_significant_lcpm_heatmap <- DT_logFC_significant_lcpm_heatmap[order(row_sort_temp)]
 DT_logFC_significant_lcpm_heatmap[, row_sort_temp:=NULL]
-#4. Identifying the significant cluster
-invisible(h <- heatmap(as.matrix(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)]), keep.dendro=TRUE))
+#4. Identifying the significant clusters using manual inspection for every k-addition
+h <- heatmap(as.matrix(DT_logFC_significant_lcpm[,3:length(DT_logFC_significant_lcpm)]), keep.dendro=TRUE)
 row.clusters <- as.hclust(h$Rowv)
 row.clusters <- cutree(row.clusters, k=13)
 cluster_index <- c(rep(1, 562), rep(2, 848), rep(3, 496), rep(4, 141), rep(5, 64), rep(6, 937), rep(7,66))
 #5. Adding cluster belonging
 DT_logFC_significant_lcpm_heatmap[,cluster:=cluster_index]
 #6. Cluster analysis
+cluster2 <- merge(DT_logFC_significant_lcpm_heatmap[cluster==2, "SYMBOL"], DT_mean_difference[, .(ID, logFC, adj.P.Val)], by.x="SYMBOL", by.y="ID")
+cluster2 <- cluster2[order(adj.P.Val)]
 
-test <- merge(DT_logFC_significant_lcpm_heatmap[cluster==2, "SYMBOL"], DT_mean_difference[, .(ID, logFC, adj.P.Val)], by.x="SYMBOL", by.y="ID")
-test <- test[order(adj.P.Val)]
+###SECTION OUTPUT
+kable(data.table(cluster2[order(logFC)][1:10][,`:=`(logFC=round(logFC, 2), adj.P.Val=format(adj.P.Val, scientific=T, digits=2))], cluster2[order(-logFC)][1:10][,`:=`(logFC=round(logFC, 2), adj.P.Val=format(adj.P.Val, scientific=T, digits=2))]), align="c")
 
+```
 
-#Circular plot
+**Fig .**
+```{r echo=F, warning=F, message=F, error=F, fig.width=5, fig.height=5}
+#1. Creating color palettes for chord diagram
 chord_palette_group <- brewer.pal(11, "RdBu")
 chord_palette_cluster <- brewer.pal(11, "BrBG")
+#2. Creating data frame for chor diagram plotting
+chord_data <- data.frame(group=c(rep("SCI", 3), rep("naive", 3), rep("invitro", 4)), cluster=c(rep(c(2,4,6), 2), c(1,3,5,7)))
+names(chord_data) <- c("group", "cluster")
+chord_data <- matrix(with(chord_data, table(group, cluster)), ncol=7)
+colnames(chord_data) <- paste(rep("C", 7), 1:7, sep=":") 
+rownames(chord_data) <- c("In vitro", "Naive", "SCI")
 
-test <- data.frame(group=c(rep("SCI", 3), rep("naive", 3), rep("invitro", 4)), cluster=c(rep(c(2,4,6), 2), c(1,3,5,7)))
-names(test) <- c("group", "cluster")
-test <- matrix(with(test, table(group, cluster)), ncol=7)
-colnames(test) <- paste(rep("C", 7), 1:7, sep=":") 
-rownames(test) <- c("In vitro", "Naive", "SCI")
+#3. Chord diagram plot
+grid_col <- c(`In vitro` = color_palette[1], 
+              Naive = color_palette[3], 
+              SCI = color_palette[2],
+              `C:1` = chord_palette_cluster[10], 
+              `C:2` = chord_palette_cluster[8], 
+              `C:3` = chord_palette_cluster[10], 
+              `C:4` = chord_palette_cluster[8], 
+              `C:5` = chord_palette_cluster[10], 
+              `C:6` = chord_palette_cluster[8], 
+              `C:7`=chord_palette_cluster[10])
 
-
-grid_col <- c(`In vitro` = color_palette[1], Naive = color_palette[3], SCI = color_palette[2],
-    `C:1` = chord_palette_cluster[10], `C:2` = chord_palette_cluster[8], `C:3` = chord_palette_cluster[10], `C:4` = chord_palette_cluster[8], `C:5` = chord_palette_cluster[10], `C:6` = chord_palette_cluster[8], `C:7`=chord_palette_cluster[10])
 circos.par(gap.after = c(rep(5, nrow(test)-1), 15, rep(5, ncol(test)-1), 15))
+
 par(cex = 2, mar = c(0, 0, 0, 0))
 chordDiagram(test, 
              transparency = 0.4, 
@@ -1455,7 +1451,7 @@ circos.clear()
 
 ```
 
-**Fig 14.** _Figure reports a heat map with hierarchical clustering (indicated with dendrograms) using log-CPM values. Only significantly differentially expressed genes are included (and genes with NA symbols were removed)._ 
+**Fig ** _figure text_
 
 ## Multiscale bootstrap resampling of agglomerative hierarchical clustering
 
@@ -1478,16 +1474,13 @@ pvrect(DT_hierarchical_clust_boot)
 
 **Barcode plot:** This function plots two sets of genes in a ranked list of statistics. Statistics are ranked left to right from smallest to largest. Shaded region in the middle of the plot represents the ranked statistics while the vertical bars reports the positions of the specified subsets. The enrichment worm (line) shows the relative enrichment of the vertical bars in each part of the plot.  
 
-**Table 5. Significant and selected gene sets from MSigDB libraries** 
-
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #1. Defining function which takes a specified index and runs the 'camera' function and returns a data_table
-camera_function <- function(selected.index, type){
-  data_out <- camera(DT_voom_raw, index=selected.index, design=DT_design, contrast = DT_contrast[,1], inter.gene.cor = 0.01)
-  data_out <- data.table(GeneSet = rownames(data_out), Library=type, data_out)[,!"FDR"][,PValue:=format(PValue, digits=2, scientific=T)]
-  setkey(data_out, GeneSet)  
-  return(data_out)
-}
+# camera_function <- function(selected.index, type){
+#   data_out <- camera(DT_voom_raw, index=selected.index, design=DT_design, contrast = DT_contrast[,1], inter.gene.cor = 0.01)
+#   data_out <- data.table(GeneSet = rownames(data_out), Library=type, data_out)[,!"FDR"][,PValue:=format(PValue, digits=2, scientific=T)]
+#   setkey(data_out, GeneSet)  
+#   return(data_out)}
 
 # #2. Creating indices
 # #C2
@@ -1514,8 +1507,6 @@ camera_function <- function(selected.index, type){
 # kable(rbind(camera_function(geneset_index_c2, "C2")[c2_selected], camera_function(geneset_index_c7, "C7")[c7_selected], camera_function(geneset_index_hallmark, "Hallmark")[hallmark_selected]), align = c("l", rep("c",4)), col.names = c("Gene set", "MSigDB","Genes (n)", "Direction", "P-value"))
 
 ```
-
-**Fig 17. Barcode plot**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #1. Bar code plot for M1-M2 up and down (from C2)
