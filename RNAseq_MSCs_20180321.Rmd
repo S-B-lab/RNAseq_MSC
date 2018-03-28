@@ -1,6 +1,5 @@
 ---
 title: "Transcriptomal Changes in MSCs Following Exposure to Spinal Cord Injury"
-author: "Ramil Hakim"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output: 
   html_document:
@@ -20,19 +19,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Executive Summary
 
-* **Reduction of dimension and clustering reveals good separation between the three study groups**
-
-* **MSCs exposed to spinal cord injury is similar but distinctly different from MSCs exposed to naive spinal cord**
+* **Study groups separate well following dimensionality reduction and clustering analysis**
 
 * **~10000 genes are differentially expressed between MSC[SCI] and MSC[Naive]**
 
-* **MSC[Naive] are similar to MSC[in vitro] while MSC[SCI] are different from MSC[in vitro]**
+* **MSC[Naive] is similar to MSC[in vitro] while MSC[SCI] is different from MSC[in vitro]**
 
 * **Genes differentially expressed between MSC[SCI] and MSC[Naive] have functions (GO terms) mainly related to immune system and immune response. Most relevant KEGG pathways for this contrast are related to immune system diseases**
 
-* **Heatmap analysis reveals 7 clusters separating MSC[in vitro] from the other two study groups. 700 genes in cluster 2 explain most of the difference between MSC[SCI] and MSC[naive]**
-
-* **Upcoming: validation**
+* **Heatmap analysis reveals 7 clusters separating MSC[in vitro] from MSC[SCI] and MSC[Naive]. 700 genes in cluster 2 explain most of the difference between MSC[SCI] and MSC[naive]**
 
 ***
 
@@ -42,7 +37,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 **Experimental setup & sequencing:** mCherry+MSCs were transplanted into injured (75 kdyn contusion injury, 24h post SCI) or uninjured spinal cord using a glas capillary pipette. C57BL/6J female mice were used in all experiments. At 7 days post transplantation the mCherry+MSCs were collected using FACS. FACS of MSCs from injured spinal cord was performed using injured spinal cord as reference (i.e. negative gate setting). FACS of MSCs from uninjured spinal cord was performed using uninjured spinal cord as reference. Total RNA, digested of DNase, was isolated and libraries were prepared using SMARTer Stranded Total RNA-Seq Kit - Pico Input Mammalian (Takara). Sequencing was performed 2x125bp in two lane using the HiSeq2500 system and v4 sequencing chemistry (Illumina Inc.) performed by the SNP&SEQ Technology Platform (Stockholm, Sweden).
 
-**Data analysis:** Data was analysed using edgeR and limma packages, both available through [bioconductor](https://www.bioconductor.org/) using R version 3.4.4 (*Someone to Lean On*). Two additional key packages used were ggplot2 and data.table.    
+**Data analysis:** Data was analysed using edgeR and limma packages, both available through [Bioconductor](https://www.bioconductor.org/) using R (version 3.4.4, *Someone to Lean On*). Two additional key packages used were ggplot2 and data.table.    
 
 ***
 
@@ -197,7 +192,7 @@ pander(data.table(Characteristic=c("Samples (n):","Groups (n):","Unique ENSEMBL 
 
 **Fig 1. Density of log-CPM values pre -and post filtering**
 
-```{r echo=F, warning=F, message=F, error=F, fig.height=4, fig.width=12}
+```{r echo=F, warning=F, message=F, error=F, fig.height=5, fig.width=13}
 #1. Converting the read count matrix into a log CPM matrix 
 DT_lcpm_unfiltered <- data.table(cpm(DT_read_count[,-c(1:2)], log=T, lib.size = colSums(DT_read_count[,-c(1:2)])))
 #2. Filtering out lowly expressed genes from read count matrix using log-CPM values
@@ -230,7 +225,7 @@ density_raw_plot <- logCPM_density_plot_function(lcpm_unfiltered_plotdata, "RAW"
 density_filtered_plot <- logCPM_density_plot_function(lcpm_filtered_plotdata, "FILTERED","none")
 
 ###SECTION OUTPUT
-grid.arrange(arrangeGrob(density_raw_plot, left=textGrob("A", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(density_filtered_plot, left=textGrob("B", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=15))), ncol=2, widths=c(3,3), bottom=textGrob("log-CPM", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Density", gp=gpar(fontsize=17, fontface="bold"), rot=90))
+grid.arrange(arrangeGrob(density_raw_plot, left=textGrob("A", vjust=-10, hjust=1.5, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(density_filtered_plot, left=textGrob("B", vjust=-10, hjust=1.5, gp=gpar(fontface=2, fontsize=20))), ncol=2, widths=c(3,3), bottom=textGrob("log-CPM", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Density", gp=gpar(fontsize=17, fontface="bold"), rot=90))
 
 ```
 
@@ -284,7 +279,7 @@ log_cpm_distribution_function <- function(dataset, type){
 }
 
 ###SECTION OUTPUT
-grid.arrange(arrangeGrob(log_cpm_distribution_function(DT_lcpm_notNormalised_melt, "RAW"), left=textGrob("A", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(log_cpm_distribution_function(DT_lcpm_melt, "NORMALIZED"), left=textGrob("B", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=15))), ncol=2, bottom=textGrob("Sample", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("log-CPM", gp=gpar(fontsize=17, fontface="bold"), rot=90))
+grid.arrange(arrangeGrob(log_cpm_distribution_function(DT_lcpm_notNormalised_melt, "RAW"), left=textGrob("A", vjust=-10, hjust=1.5, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(log_cpm_distribution_function(DT_lcpm_melt, "NORMALIZED"), left=textGrob("B", vjust=-10, hjust=1.5, gp=gpar(fontface=2, fontsize=20))), ncol=2, bottom=textGrob("Sample", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("log-CPM", gp=gpar(fontsize=17, fontface="bold"), rot=90))
 
 ```
 
@@ -306,7 +301,11 @@ Process of reducing the number of random variables by obtaining a set of princip
 
 * **Sammon's non-linear mapping:** A non-linear approach. Maps high-dimension to low-dimension by preserving the structure of inter-point distances in high dimensions even in low dimensions. Minimizes a stress function (Sammaons error/stress).
 
-* **Multidimensional scaling (MDS):** A non-linear approach. 1) assign observations to arbitrary coordiantes in p-dimensional space, 2) compute euclidian distances among all pairs of points and form the Dhat matrix, 3) compare the Dhat matrix with the input matrix using a stress function (low stress level indicates a good correspondence), 4) repeat proces untill stress cannot be minimized more.     
+* **Multidimensional scaling (MDS):** A non-linear approach. 1) assign observations to arbitrary coordiantes in p-dimensional space, 2) compute euclidian distances among all pairs of points and form the Dhat matrix, 3) compare the Dhat matrix with the input matrix using a stress function (low stress level indicates a good correspondence), 4) repeat proces untill stress cannot be minimized more.
+
+* **Non-metric Multidimensional Scaling (MDS):**
+
+* **Maximum likelihood factor analysis:**
 
 * **Singular Value Decomposition (SVD):** The matrix A(mxn) is factorized into a unitary matrix U (mxm), a positive diagnonal matrix (mxn) and a unitary matrix V(nxn). If the conjugate transpose of a square matrix is also its inverse the matrix is said to be unitary. 
 
@@ -363,7 +362,7 @@ names(DT_pca_boot_conf_plotdata) <- names(DT_pca_boot_conf$t0)[1:10]
 DT_pca_boot_conf_plotdata <- suppressWarnings(melt.data.table(DT_pca_boot_conf_plotdata, variable.name = "PC.type"))
 
 ###SECTION OUTPUT
-grid.arrange(arrangeGrob(PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop", 1), left=textGrob("A", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop.cumsum", 11), left=textGrob("B", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=15))), ncol=2, bottom=textGrob("Principal component", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Proportion variance explained", gp=gpar(fontface="bold", fontsize=17), rot=90))
+grid.arrange(arrangeGrob(PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop", 1), left=textGrob("A", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(PCA_plot_prop.var_function(DT_principal_comp_summary,"var.prop.cumsum", 11), left=textGrob("B", vjust=-13, hjust=2, gp=gpar(fontface=2, fontsize=20))), ncol=2, bottom=textGrob("Principal component", gp=gpar(fontsize=17, fontface="bold")), left=textGrob("Proportion variance explained", gp=gpar(fontface="bold", fontsize=17), rot=90))
 
 ```
 
@@ -467,7 +466,7 @@ grid.arrange(arrangeGrob(arrangeGrob(PCA_plot, tSNE_plot("none"), ncol=2), PCA_t
 
 ```
 
-**Fig 5.** _Figure reports the samples in low dimensional space following dimensionality reduction with PCA and tSNE for the 500 genes with the highest variance. Ellipses are added to the samples for easier study group recognition._
+**Fig 5.** _Figure reports the samples in low dimensional space following dimensionality reduction with PCA and t-SNE for the 500 genes with the highest variance. Ellipses are added to the samples for easier recognition of the study groups._
 
 **Fig 6. Dimensionality reduction using PCA and t-SNE of the 500 genes with highest variance**
 
@@ -505,7 +504,7 @@ scatter3D_fancy(tSNE_plot_data$V1, tSNE_plot_data$V2, tSNE_plot_data$V3,
 
 ```
 
-**Fig 6.** _Figure reports the samples in three-dimensional space following dimensionality with PCA (Fig 6A) and t-SNE (Fig 6B). The third dimension is added in order to visualize the separation when the second and third component/variable is used. Two-dimensional representations are added on the walls in addition to the three-dimensional representation._
+**Fig 6.** _Figure reports the samples in three-dimensional space following dimensionality reduction with PCA and t-SNE. The third dimension is added in order to visualize the separation when the influential first component/variable is not used. Two-dimensional representations are added on the walls in addition to the three-dimensional representation._
 
 **Fig 7. 1000 bootstrap replicates of PCA of the 500 genes with highest variance**
 
@@ -557,7 +556,7 @@ scatter3D_fancy(DT_pca_boot$PC1, DT_pca_boot$PC2, DT_pca_boot$PC3,
 
 ```
 
-**Fig 7.** _Figure reports the three-dimensional representation of 1000 bootstrap replicates of PCA. Fig 7A reports with three-dimensional coordinates while Fig 7B does not._
+**Fig 7.** _Figure reports the three-dimensional representation of 1000 bootstrap replicates of PCA. Left figure reports with three-dimensional coordinates while right figure does not._
 
 ```{r echo=F, warning=F, message=F, error=F}
 ########################################### UNSUPERVISED LEARNING (all other methods) ############################################
@@ -626,15 +625,15 @@ names(kpca_plot_data) <- c("V1", "V2", "group", "ID")
 ###SECTION OUTPUT
 dimension_legend <- get_legend(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = F, legend.position = "bottom"))
 
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(MDS_classical_fit, "Multidimensional Scaling\n[classical]"), left=textGrob("A", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Multidimensional scaling\n[nonmetric]"), left=textGrob("B", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(MDS_classical_fit, "Multidimensional Scaling\n[classical]"), left=textGrob("A", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(MDS_nonmetric_fit, "Multidimensional scaling\n[nonmetric]"), left=textGrob("B", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), left=textGrob("C", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), left=textGrob("D", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(sammon_mapping_plot_data, "Sammon's Non-\nLinear Mapping"), left=textGrob("C", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(kpca_plot_data, "kernel\nPCA", textboolean = T), left=textGrob("D", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Singular Value\nDecomposition", textboolean = T), left=textGrob("E", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(MLFA_plot_data, "Maximum Likelihood\nFactor Analysis", textboolean = T), left=textGrob("F", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Singular Value\nDecomposition", textboolean = T), left=textGrob("E", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(MLFA_plot_data, "Maximum Likelihood\nFactor Analysis", textboolean = T), left=textGrob("F", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), dimension_legend, nrow=2, heights=c(5,1))
 
 ```
 
-**Fig 8.** _Figure panel reports common dimensionality reduction algorithms applied on the dataset._
+**Fig 8.** _Figure 8A-F reports common dimensionality reduction algorithms applied on the dataset._
 
 ***
 
@@ -773,15 +772,15 @@ hierarchical_clustering_circular_1000 <- ggraph(DT_hclust_circularpacking, layou
 par(mfrow=c(1,2))
 
 grid.arrange(arrangeGrob(
-arrangeGrob(grob(myplclust(DT_hclust, labels=paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)), left=textGrob("A", vjust=-15, hjust=0, gp=gpar(fontface=2, fontsize=17))),
+arrangeGrob(grob(myplclust(DT_hclust, labels=paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID],")", sep=""), main="", ylab="", lab.col=brewer.pal(11, "RdBu")[c(1,2,10)][as.numeric(DT_meta_data[,group])], font=2, cex=1, hang=0.05)), left=textGrob("A", vjust=-9, hjust=0, gp=gpar(fontface=2, fontsize=20))),
 
-arrangeGrob(hierarchical_clustering_circular_1000, left=textGrob("B", vjust=-15, hjust=0, gp=gpar(fontface=2, fontsize=17))), ncol=2))
+arrangeGrob(hierarchical_clustering_circular_1000, left=textGrob("B", vjust=-9, hjust=0, gp=gpar(fontface=2, fontsize=20))), ncol=2))
 
 ```
 
 **Fig 9.** _Figure reports hierarchical clustering based on te 500 most variable genes. Fig 9A reports the clustering using a dendrogram while Fig 9B reports the same clustering using a circular packing plot._
 
-**Fig 10. Clustering of samples using common methods following dimensionality reduction with PCA and tSNE**
+**Fig 10. Clustering of samples using common methods following dimensionality reduction with PCA and t-SNE**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #Aligning column names
@@ -790,25 +789,24 @@ setnames(PCA_cluster_data, c("PC1", "PC2", "PC3"), c("V1", "V2", "V3"))
 ### SECTION OUTPUT [2D plots]
 cluster_legend <- get_legend(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM", legend.position = "bottom"))
 
-#left=textGrob("F", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))
 #K-Nearest Neighbour
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[PCA]", cluster_type = "KNN"), left=textGrob("A", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[tSNE]", cluster_type = "KNN"), left=textGrob("B", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[PCA]", cluster_type = "KNN"), left=textGrob("A", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[tSNE]", cluster_type = "KNN"), left=textGrob("B", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Support Vector Machine
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine\n(train:test-60:40)\n[PCA]", cluster_type = "SVM"), left=textGrob("C", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Support Vector Machine \n(train:test-60:40)\n[tSNE]", cluster_type = "SVM"), left=textGrob("D", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine\n(train:test-60:40)\n[PCA]", cluster_type = "SVM"), left=textGrob("C", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Support Vector Machine \n(train:test-60:40)\n[tSNE]", cluster_type = "SVM"), left=textGrob("D", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #K-Means Clustering
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), left=textGrob("E", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), left=textGrob("F", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), left=textGrob("E", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), left=textGrob("F", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Expectation Maximum
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), left=textGrob("G", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), left=textGrob("H", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), left=textGrob("G", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), left=textGrob("H", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Spectral Clustering
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), left=textGrob("I", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), left=textGrob("J", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), left=textGrob("I", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), left=textGrob("J", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Affinity Propagation
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), left=textGrob("K", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), left=textGrob("L", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), left=textGrob("K", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), left=textGrob("L", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 
 ```
 
-**Fig 10.** _Figure reports result of common clustering algorithms implemented on samples following dimensionality reduction using PCA and tSNE. In the case train-test split was required a 60:40 ratio (13:9 samples) was used instead of a traditional 80:20 ratio due to low number of samples in the test set._
+**Fig 10.** _Figure reports result of common clustering algorithms implemented on samples following dimensionality reduction using PCA and t-SNE. In the case train-test split was required a 60:40 ratio (13:9 samples) was used instead of a traditional 80:20 ratio due to low number of samples in the test set._
 
-**Fig 11. Clustering of 200 random bootstrap replicates for each sample using affinity propagation and k-means clustering** 
+**Fig 11. Clustering of 200 random bootstrap replicates for each sample using affinity propagation and L-means clustering** 
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #3D illustration of clustering (AP, K-means) on bootstrapped PCA-data
@@ -854,7 +852,7 @@ scatter3D_fancy(KM_PCA_boot$PC1, KM_PCA_boot$PC2, KM_PCA_boot$PC3, colvar = as.i
 
 ```
 
-**Fig 11.** _Figure reports 3-dimensional representations of clustering using affinity propagation and k-means clustering of 200 random bootstrap replicates of PCA per sample._
+**Fig 11.** _Figure reports three-dimensional representations of clustering using affinity propagation and K-means clustering of 200 random bootstrap replicates of PCA per sample._
 
 ***
 
@@ -895,9 +893,9 @@ DT_loadings_plot_function <- function(data.set.loading, pc.type){
   theme(axis.text.x = element_text(size=12), axis.title.x = element_text(face="bold", size=22), axis.title.y = element_blank(), axis.text.y = element_text(size=15))
   
   if(pc.type=="PC1"){
-    DT_loadings_out <- DT_loadings_out+scale_fill_manual(values=brewer.pal(11, "RdBu")[1])+annotate("text", x=20, y=-0.25, label="A", size=7.5, fontface=2) + ylab("Principal component 1")
+    DT_loadings_out <- DT_loadings_out+scale_fill_manual(values=brewer.pal(11, "RdBu")[1])+ ylab("Principal component 1")
   } else if(pc.type=="PC2"){
-    DT_loadings_out <- DT_loadings_out+scale_fill_manual(values=brewer.pal(11, "RdBu")[11])+annotate("text", x=20, y=-0.25, label="B", size=7.5, fontface=2)+ylab("Principal component 2")
+    DT_loadings_out <- DT_loadings_out+scale_fill_manual(values=brewer.pal(11, "RdBu")[11])+ylab("Principal component 2")
   }
   
   return(DT_loadings_out)
@@ -959,7 +957,8 @@ circular_loadings_plot
 **Fig 13. Top 10 positive and negative loadings for the first -and second principal component**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=14}
-grid.arrange(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
+grid.arrange(arrangeGrob(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), left=textGrob("A", vjust=-11, hjust=1.5, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), left=textGrob("B", vjust=-11, hjust=0, gp=gpar(fontsize=20, fontface=2))), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
+
 ```
 
 **Fig 13.** _Figure reports the top 10 positive and negative loadings for the first -and second principal component._
@@ -1057,8 +1056,7 @@ voom_plot <- ggplot(DT_voom_plotdata, aes(log.cpm, quarter.var))+
   scale_x_continuous(breaks=seq(0,18,2))+
   scale_y_continuous(breaks=seq(0,3,0.5), limits=c(0.25,2.5))+
 
-  theme(axis.title.y = element_text(face="bold", size=17), axis.title.x = element_blank())+
-  annotate("text", x=0, y=2.5, label="A", size=7.5, fontface=2)
+  theme(axis.title.y = element_text(face="bold", size=17), axis.title.x = element_blank())
 
 bayes_plot <- ggplot(DT_efit_plotdata, aes(Amean, log2.sigma))+
   geom_point(alpha=0.3)+
@@ -1070,14 +1068,14 @@ bayes_plot <- ggplot(DT_efit_plotdata, aes(Amean, log2.sigma))+
   scale_x_continuous(breaks=seq(-2,14,2))+
   scale_y_continuous(breaks=seq(-4,4,0.5), limits=c(-2.5,2.5))+
 
-  theme(axis.title.y = element_text(face="bold", size=17), axis.title.x = element_blank())+
-  annotate("text", x=-3.5, y=2.5, label="B", size=7.5, fontface=2)
-
+  theme(axis.title.y = element_text(face="bold", size=17), axis.title.x = element_blank())
+ 
 ###SECTION OUTPUT
-grid.arrange(voom_plot, bayes_plot, ncol=2, nrow=1, bottom=textGrob("Average log-CPM", gp=gpar(fontsize=17, fontface="bold")))
+grid.arrange(arrangeGrob(arrangeGrob(voom_plot, left=textGrob("A", vjust=-10, hjust=-1.5, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(bayes_plot, left=textGrob("B", vjust=-10, hjust=-1.5, gp=gpar(fontsize=20, fontface=2))), ncol=2), bottom=textGrob("Average log-CPM", gp=gpar(fontsize=17, fontface="bold")))
+
 ```
 
-**Fig 15.** _Figure reports the mean-variance relationship pre -and post application of the voom function. Fig 9A reports the average log-CPM against the quarter root of the variance. Fig 9B reports average log-CPM against the log2(st.dev). Blue line reports the average log2(st.dev). The red line is a linear trend fitted to the black dots. Each black dot represents a gene. Fig 9A illustrates that the variance is decresing when the average expression is increasing. In Fig 9B the dependency is removed and the mean variance is unchanged when the average expression increases._      
+**Fig 15.** _Figure reports the mean-variance relationship pre -and post application of the voom function. Fig 15A reports the average log-CPM against the quarter root of the variance. Fig 15B reports average log-CPM against the log2(st.dev). Blue line reports the average log2(st.dev). The red line is a linear trend fitted to the black dots. Each black dot represents a gene. Fig 15A illustrates that the variance is decresing when the average expression is increasing. In Fig 15B the dependency is removed and the mean variance is unchanged when the average expression increases._      
 
 **Fig 16. Hierarchical clustering and circular packing plot of 1000 genes with highest F-value**
 
@@ -1112,14 +1110,13 @@ hierarchical_clustering_circular_Fstatistica <- ggraph(DT_toptableF_circularpack
   geom_node_text(aes(label=group, filter=leaf), size=2, fontface=2)
 
 ###SECTION OUTPUT
-
 par(mfrow=c(1,2))
 
 grid.arrange(arrangeGrob(
 
-arrangeGrob(grob(myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)), left=textGrob("A", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15))),
+arrangeGrob(grob(myplclust(DT_toptableF, labels = paste(DT_meta_data[,group]," ","(", DT_meta_data[,ID], ")", sep=""), lab.col = brewer.pal(11,"RdBu")[c(1,2,10,11)][as.numeric(DT_meta_data[,group])], main=" ", ylab=" ", font=2, cex=1, hang=0.05)), left=textGrob("A", vjust=-10, hjust=0, gp=gpar(fontface=2, fontsize=20))),
 
-arrangeGrob(left=textGrob("B", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=15)),hierarchical_clustering_circular_Fstatistica), ncol=2))
+arrangeGrob(left=textGrob("B", vjust=-10, hjust=0, gp=gpar(fontface=2, fontsize=20)),hierarchical_clustering_circular_Fstatistica), ncol=2))
 
 ```
 
@@ -1130,7 +1127,7 @@ arrangeGrob(left=textGrob("B", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize
 # Differential Gene Expression
 **Determining significant gene differential expression for a contrast:** A simple Bayesian model is used for moderating standard errors across genes (squeeze them towards a common value) and producing moderated t-statistics. These moderated t-statistics are used for significance analysis. Moderated t-statistics have a higher degree of freedom in comparison to usual t-statistics due to the increase in reliability resulting from the smoothening of standard errors. P-values are adjusted for multiple testing using Benjamini and Hochberg's method to control for false discovery rate (FDR). 
 
-**Fig 17. Number of differentially expressed genes for each contrast**
+**Fig 17. Number of differentially expressed genes for each contrast (FDR<0.05)**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.show='hide'}
 #1. Summarizing the number of up - and downregulated differentially expressed genes
@@ -1171,7 +1168,7 @@ grid.arrange(arrangeGrob(gTree(children=venn_plot)))
 
 **Fig 17.** _Figure reports a venn diagram containing the number of differentially expressed genes for each contrast._
 
-**Table 3. Number of differentially over -and under-expressed genes for each contrast**
+**Table 3. Number of differentially over -and under-expressed genes for each contrast (FDR<0.05)**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=15, fig.height=6, fig.align='center'}
 #Summary table
@@ -1182,7 +1179,7 @@ kable(DT_dge_summary, col.names = c("MSC[SCI]-MSC[naive]", "MSC[SCI]-MSC[invitro
 
 ```
 
-**Fig 18. Mean difference -and volcano plot**
+**Fig 18. Mean difference -and volcano plot (FDR<1e-6)**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=14, fig.height=5}
 #1. Creating plotting data for mean-difference plot
@@ -1248,14 +1245,14 @@ volcano_plot <- ggplot(DT_volcano,aes(logFC,log.odds))+
   theme(axis.title = element_text(face="bold", size=22))
 
 ###SECTION OUTPUT
-plot_grid(arrangeGrob(mean_difference_plot, left=textGrob("A", vjust=-15, hjust=-2, gp=gpar(fontsize=17, fontface=2))), arrangeGrob(volcano_plot, left=textGrob("B", vjust=-15, hjust=-2, gp=gpar(fontsize=17, fontface=2))))
+plot_grid(arrangeGrob(mean_difference_plot, left=textGrob("A", vjust=-15, hjust=-2, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(volcano_plot, left=textGrob("B", vjust=-15, hjust=-2, gp=gpar(fontsize=20, fontface=2))))
 
 # ggsave("mean_difference_plot.jpg",mean_difference_plot, dpi=1000, height=7, width=14)
 # ggsave("volcano_plot.jpg",volcano_plot, dpi=1000, height=7, width=14)
 
 ```
 
-**Fig 18.** _Figure 11A reports a mean-difference plot which illustrates the number of over -and under expressed genes. Threshold is set at log2(fold change) +/-1 (blue lines). Blue dots represents genes above or below the log-fold change thresholds while red dots represent those genes which are above/below the thresholds and are significantly (p<1e-6) differentially expressed. Fig 11B is a volcano plot which reports the number of significantly (p<1e-6) over -and underexpressed genes (marked with red). Blue dots represent genes which have logFC <-1 or >1 but are not significantly expressed. Data in both plots is for the contrast "MSC[SCI] vs MSC[naive]"._
+**Fig 18.** _Figure 18A reports a mean-difference plot which illustrates the number of over -and under expressed genes. Threshold is set at log2(fold change) +/-1 (blue lines). Blue dots represents genes above or below the log-fold change thresholds while red dots represent those genes which are above/below the thresholds and are significantly (p<1e-6) differentially expressed. Fig 18B is a volcano plot which reports the number of significantly (p<1e-6) over -and underexpressed genes (marked with red). Blue dots represent genes which have logFC <-1 or >1 but are not significantly expressed. Data in both plots is for the contrast "MSC[SCI] vs MSC[naive]"._
 
 **Table 4. 10 most significantly up -and downregulated differentially expressed genes**
 
@@ -1281,7 +1278,7 @@ kable(top_20_dge_retreiver(DT_efit, 10, 1e-6), align="c", col.names = rep(c("Gen
 
 **KEGG (Kyoto Encyclopedia of Genes and Genomes):** KEGG pathway are manually drawn pathway maps which represent the current knowledge within metabolism, cellular processes and many more.  
 
-**Table 5. GO terms and KEGG pathways using FDR<1e-6**
+**Table 5. GO terms and KEGG pathways (FDR<1e-6)**
 
 ```{r echo=F, warning=F, message=F, error=F,fig.width=17, fig.height=7}
 #1. Getting ENTREZ IDs for all genes in the filtered read count matrix 
@@ -1308,7 +1305,7 @@ kable(data.table(Type="KEGG", DT_KEGG_top), align=c("l", "l", rep("c", 6)))
 
 # Unsupervised Clustering 2
 
-##Agglomerative hierarchical clustering with heat map
+## *Agglomerative hierarchical clustering with heatmap*
 
 **Background:** Purpose of hierarchical clustering in combination with heatmap is to find subset of genes which explain the difference between study groups.
 
@@ -1343,10 +1340,10 @@ heatmap_plot_function <- function(heatmap.data, col.height, column.labels, dendr
             cexCol = 3,
             cexRow = 0.5,
             offsetRow = 0.1,
-            offsetCol = 0.1,
-            
-            lhei=c(col.height,10),
-            lwid=c(0.5,3))
+            offsetCol = -0.5,
+            margins = (c(8,2)),
+            lhei=c(col.height, 10),
+            lwid=c(0.5, 3))
   
     invisible(heatmap_plot_out)  
 }
@@ -1357,7 +1354,7 @@ colnames(DT_hierarchical_clust) <- paste(DT_meta_data[,group]," ","(", DT_meta_d
 DT_hierarchical_clust_boot <- pvclust(DT_hierarchical_clust, quiet=T)
 
 ###SECTION OUTPUT
-heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 2, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))])
+heatmap_plot_function(DT_logFC_significant_lcpm[, 3:length(DT_logFC_significant_lcpm)], 0.5, DT_meta_data[,group], "both", DT_logFC_significant_lcpm[, as.character(ifelse(is.na(SYMBOL), ENSEMBL_ID, SYMBOL))])
 
 # #Saving
 # jpeg('heatmap.jpg',
@@ -1403,7 +1400,7 @@ kable(data.table(cluster2[order(logFC)][1:10][,`:=`(logFC=round(logFC, 2), adj.P
 
 **Fig 20. Chord diagram representing relation between study groups and clusters in heatmap**
 
-```{r echo=F, warning=F, message=F, error=F, fig.width=5, fig.height=5}
+```{r echo=F, warning=F, message=F, error=F, fig.width=5, fig.height=5, fig.align='center'}
 #1. Creating color palettes for chord diagram
 chord_palette_group <- brewer.pal(11, "RdBu")
 chord_palette_cluster <- brewer.pal(11, "BrBG")
