@@ -21,13 +21,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 * **Study groups separate well following dimensionality reduction and clustering analysis**
 
-* **~10000 genes are differentially expressed between MSC[SCI] and MSC[Naive]**
+* **~10000 genes (at FDR<0.05) are differentially expressed between MSC[SCI] and MSC[Naive]**
 
 * **MSC[Naive] is similar to MSC[in vitro] while MSC[SCI] is different from MSC[in vitro]**
 
 * **Genes differentially expressed between MSC[SCI] and MSC[Naive] have functions (GO terms) mainly related to immune system and immune response. Most relevant KEGG pathways for this contrast are related to immune system diseases**
 
-* **Heatmap analysis reveals 7 clusters separating MSC[in vitro] from MSC[SCI] and MSC[Naive]. 700 genes in cluster 2 explain most of the difference between MSC[SCI] and MSC[naive]**
+* **Heatmap analysis reveals 7 clusters separating MSC[in vitro] from MSC[SCI] and MSC[Naive]. 700 genes (FDR<1e-6) in cluster 2 explain most of the difference between MSC[SCI] and MSC[naive]**
 
 ***
 
@@ -186,9 +186,9 @@ pander(data.table(Characteristic=c("Samples (n):","Groups (n):","Unique ENSEMBL 
 
 **Background:** The expression of a gene must reach a certain threshold for it to be translated into a protein. Translation into a protein is a prerequiste for a gene to have any biological function. Thus, genes with low number of read counts across samples are probably not differentially expressed and should be removed. However, a greater sequencing depth (i.e. a larger library size) will result in a higher read count, thus introducing a bias to the DGE analysis. Therefore, prior to filtering, raw counts are transformed into counts per million (CPM) which accounts for the difference in library size. 
 
-**Transformation:** Raw counts are transformed into CPM by dividing each count with the sum of the column (i.e. the library size) and then multiplying by 1e6. Log-CPM is calculated by taking log2 (raw count + 0.25).
+**Transformation:** Raw counts are transformed into CPM by dividing each count with the sum of the column (i.e. the library size) and then multiplying by $1e6$. Log-CPM is calculated by taking $log_2(count+0.25)$.
 
-**Filtering:** Genes with low expression are removed from the count matrix by filtering. A gene is defined as highly expressed if CPM>1 (i.e. log-CPM>0) for at least three samples. 
+**Filtering:** Genes with low expression are removed from the count matrix by filtering. A gene is defined as highly expressed if $CPM>1$ (i.e. $log(CPM)>0$) for at least three samples. 
 
 **Fig 1. Density of log-CPM values pre -and post filtering**
 
@@ -294,22 +294,6 @@ grid.arrange(arrangeGrob(log_cpm_distribution_function(DT_lcpm_notNormalised_mel
 # Dimensionality Reduction
 
 Process of reducing the number of random variables by obtaining a set of principle variables. The number of dimensions of a dataset is reduced without compromising the information content. Two main approaches: 1) feature selection (find a subset of the original variables) and 2) feature extraction (transformation from high-dimensional to low-dimensional space using linear or non-linear techniques). 
-
-* **Principal Component Analysis (PCA):** Feature extraction with linear approach. Variation in the low-dimensional representation is maximized. 1) Variance-covariance matrix is calculated, 2) eigenvalues (principal components) and eigenvectors of the covariance matrix are determined. The eigenvectors belonging to the largest eigenvalues can be used to reconstruct a large fraction of the variance of the original data.     
-
-* **t-distributed Stochastic Neighbour Embedding (tSNE):** A non-linear approach. Keeps dissimilar points apart and similar close in comparison to PCA which preserves dissimilarities. Algorithm has two main steps: 1) probability distribution is constructed on the high-dimensional data such that similar points are likely to be picked and vice versa. 2) Algorithm then defines a similar distribution but in lower-dimensional space and 3) the divergence between the two distributions is minimized. Perplexity is comparable to the number of nearest neighbours k in other techniques. Theta is a speed accrucacy trade-off.
-
-* **Sammon's non-linear mapping:** A non-linear approach. Maps high-dimension to low-dimension by preserving the structure of inter-point distances in high dimensions even in low dimensions. Minimizes a stress function (Sammaons error/stress).
-
-* **Multidimensional scaling (MDS):** A non-linear approach. 1) assign observations to arbitrary coordiantes in p-dimensional space, 2) compute euclidian distances among all pairs of points and form the Dhat matrix, 3) compare the Dhat matrix with the input matrix using a stress function (low stress level indicates a good correspondence), 4) repeat proces untill stress cannot be minimized more.
-
-* **Non-metric Multidimensional Scaling (MDS):**
-
-* **Maximum likelihood factor analysis:**
-
-* **Singular Value Decomposition (SVD):** The matrix A(mxn) is factorized into a unitary matrix U (mxm), a positive diagnonal matrix (mxn) and a unitary matrix V(nxn). If the conjugate transpose of a square matrix is also its inverse the matrix is said to be unitary. 
-
-* **Kernel PCA:** Extension of PCA by using kernel methods (use kernel methods to compute the inner products between all pairs of data in the feature space). The data points are first mapped onto a non-linear feature space, then the PCA is conducted as usual. 
 
 **Fig 3. Variance explained by principal components based on the 500 genes with highest variance**
 
@@ -639,20 +623,6 @@ grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(svd_plot_data, "Sin
 
 #Clustering Algorithms
 
-* **Expectation maximisation:** 1) Clusters are assigned randomly onto the data. Clusters are given mean, covariance (allowing elliptical shape) and weight (size, i.e. number of observations). 2) A probability for an observation to belong to a cluster is calculated for each observation. The probability for an observation to belong to a cluster is given by a multivariate Gaussian probability distribution. 3) Mean, covariance and size is re-estimated for each cluster using the probabilties for each observation as weight. Steps are repeated until convergence. Algorithm might have to be run several times since the initial allocation of clusters is random.    
-
-* **Spectral clustering:** Complicated. 
-
-* **K-Nearest Neighbour:** Training part consists of storing the class labels of the training samples. Each sample in the test set is then compared to its k-nearest neighbours and assigned the class which is in majority. 
-
-* **Affinity propagation:** Requires two inputs: 1) similarites between data points, 2) preferences representing each data points suitabiity to be an exemplar (i.e. cluster centroid). The algorithm then refines a randomly-chosen initial set of exemplars by maximizing the total similarity between data points and their exemplars.
-
-* **K-means:** Randomly assign k-number of centroids in the plane. Calculate the distance from each observation to each centroid. Assign the closest centroid/class to each observation. Select the least distant observation from the centroid as the new centroid and repeat the procedure. For precision the algorithm has to be initiated a couple of times since the initial centroid assignment in random.  
-
-* **Support vector machine:** A linear classifier using a hyperplane. 1) The hyperplane separating the clusters is identified, 2) the margin is maximized (the plane is as far away from both clusters as possible). The hyperplane which best separates the clusters is called the maximum-margin hyperplane. Outliers (observations making separation with hyperplane impossible) are igonerd by the SVM. If a linear separation still is not possible the SVM algorithm transfers the low-dimensional data to higher dimensional data using kernel methods. 
-
-* **Agglomerative Hierarchical Clustering:** Clusters on distance starting with the two observations being closest. 
-
 **Fig 9. Hierarchical clustering of samples using 500 most variable genes**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=14}
@@ -778,7 +748,7 @@ arrangeGrob(hierarchical_clustering_circular_1000, left=textGrob("B", vjust=-9, 
 
 ```
 
-**Fig 9.** _Figure reports hierarchical clustering based on te 500 most variable genes. Fig 9A reports the clustering using a dendrogram while Fig 9B reports the same clustering using a circular packing plot._
+**Fig 9.** _Figure reports hierarchical clustering based on the 500 most variable genes. Fig 9A reports the clustering using a dendrogram while Fig 9B reports the same clustering using a circular packing plot._
 
 **Fig 10. Clustering of samples using common methods following dimensionality reduction with PCA and t-SNE**
 
@@ -790,23 +760,23 @@ setnames(PCA_cluster_data, c("PC1", "PC2", "PC3"), c("V1", "V2", "V3"))
 cluster_legend <- get_legend(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM", legend.position = "bottom"))
 
 #K-Nearest Neighbour
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[PCA]", cluster_type = "KNN"), left=textGrob("A", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[tSNE]", cluster_type = "KNN"), left=textGrob("B", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[PCA]", cluster_type = "KNN"), left=textGrob("A", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Nearest Neighbour\n(train:test-60:40)\n[tSNE]", cluster_type = "KNN"), left=textGrob("B", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Support Vector Machine
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine\n(train:test-60:40)\n[PCA]", cluster_type = "SVM"), left=textGrob("C", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Support Vector Machine \n(train:test-60:40)\n[tSNE]", cluster_type = "SVM"), left=textGrob("D", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Support Vector Machine\n(train:test-60:40)\n[PCA]", cluster_type = "SVM"), left=textGrob("C", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Support Vector Machine \n(train:test-60:40)\n[tSNE]", cluster_type = "SVM"), left=textGrob("D", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #K-Means Clustering
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), left=textGrob("E", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), left=textGrob("F", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "K-Means Clustering (3Cs)\n[PCA]", cluster_type = "KM"), left=textGrob("E", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "K-Means Clustering (3Cs)\n[tSNE]", cluster_type = "KM"), left=textGrob("F", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Expectation Maximum
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), left=textGrob("G", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), left=textGrob("H", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Expectation Maximum\n[PCA]", cluster_type = "EM"), left=textGrob("G", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Expectation Maximum\n[tSNE]", cluster_type = "EM"), left=textGrob("H", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Spectral Clustering
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), left=textGrob("I", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), left=textGrob("J", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Spectral Clustering (3Cs)\n[PCA]", cluster_type = "SC"), left=textGrob("I", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Spectral Clustering(3Cs)\n[tSNE]", cluster_type = "SC"), left=textGrob("J", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 #Affinity Propagation
-grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), left=textGrob("K", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), left=textGrob("L", vjust=-12, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
+grid.arrange(arrangeGrob(arrangeGrob(dimension_plot_function(PCA_cluster_data, "Affinity Propagation\n[PCA]", cluster_type = "AP"), left=textGrob("K", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), arrangeGrob(dimension_plot_function(tSNE_cluster_data, "Affinity Propagation\n[tSNE]", cluster_type = "AP"), left=textGrob("L", vjust=-9, hjust=-3, gp=gpar(fontface=2, fontsize=20))), ncol=2), cluster_legend, nrow=2, heights=c(5,1))
 
 ```
 
 **Fig 10.** _Figure reports result of common clustering algorithms implemented on samples following dimensionality reduction using PCA and t-SNE. In the case train-test split was required a 60:40 ratio (13:9 samples) was used instead of a traditional 80:20 ratio due to low number of samples in the test set._
 
-**Fig 11. Clustering of 200 random bootstrap replicates for each sample using affinity propagation and L-means clustering** 
+**Fig 11. Clustering of 200 random bootstrap replicates for each sample using affinity propagation and K-means clustering** 
 
 ```{r echo=F, warning=F, message=F, error=F, fig.width=12, fig.height=6}
 #3D illustration of clustering (AP, K-means) on bootstrapped PCA-data
@@ -932,7 +902,7 @@ base_data <- loadings_data_circular_melt[, .(start=min(id), end=max(id)-empty_ba
 base_data[, title:=apply(base_data[, 2:3], 1, mean)]
 #I. Creating the plot
 circular_loadings_plot <-  ggplot(loadings_data_circular_melt, aes(x=as.factor(id), y=value, fill=PC))+
-  geom_bar(aes(x=as.factor(id), y=value, fill=PC), stat="identity", alpha=0.5)+
+  geom_bar(aes(x=as.factor(id), y=value, fill=PC), stat="identity", alpha=0.7)+
   annotate("text", x = rep(max(loadings_data_circular_melt$id), 4), y = seq(0, 12, 4), label = c("0", "0.1", "0.2", "0.3") , color="grey", size=3, angle=0, fontface="bold", hjust=1)+
 
   ylim(-10, 30)+
@@ -957,7 +927,7 @@ circular_loadings_plot
 **Fig 13. Top 10 positive and negative loadings for the first -and second principal component**
 
 ```{r echo=F, warning=F, message=F, error=F, fig.height=6, fig.width=14}
-grid.arrange(arrangeGrob(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), left=textGrob("A", vjust=-11, hjust=1.5, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), left=textGrob("B", vjust=-11, hjust=0, gp=gpar(fontsize=20, fontface=2))), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
+grid.arrange(arrangeGrob(DT_loadings_plot_function(DT_loadings_plotdata, "PC1"), left=textGrob("A", vjust=-12, hjust=1.5, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(DT_loadings_plot_function(DT_loadings_plotdata,"PC2"), left=textGrob("B", vjust=-12, hjust=0, gp=gpar(fontsize=20, fontface=2))), ncol=2, left=textGrob("Gene", gp=gpar(fontface="bold", fontsize=17), rot=90))
 
 ```
 
@@ -1015,7 +985,7 @@ plot_dispersion
 
 **Background:** The variance of raw counts is not independent of its mean. Furthermore, the variance of raw counts increases with the count size (opposite is true for log-counts). 
 
-**Voom transformation:** Acronym for mean-variance modelling at the observational level. The mean-variance relationship is estimated in the data which is then used for computing precision weights for each gene. The precision weights are then implemented in the linear modelling in order to adjust for heteroscedasticity. Estimation of precision weights is done as follows: 1) log-CPM=log2(raw count + 0.5), 2) a linear model is fitted to each gene, 3) lowess function is fitted to the scatterplot between average log-CPM and sqrt(st.dev), 4) the variance of the log-CPM for each gene is predicted using the lowess trend line 5) the inverse of the variance for each log-CPM value is the precision weight.     
+**Voom transformation:** Acronym for mean-variance modelling at the observational level. The mean-variance relationship is estimated in the data which is then used for computing precision weights for each gene. The precision weights are then implemented in the linear modelling in order to adjust for heteroscedasticity. Estimation of precision weights is done as follows: 1) log-CPM=$log_2(count + 0.5)$, 2) a linear model is fitted to each gene, 3) lowess function is fitted to the scatterplot between average log-CPM and sqrt(st.dev), 4) the variance of the log-CPM for each gene is predicted using the lowess trend line 5) the inverse of the variance for each log-CPM value is the precision weight.     
 
 **Empirical Bayes moderation of standard error:** Ranks genes in order of evidence of differential expression. 
 
@@ -1075,7 +1045,7 @@ grid.arrange(arrangeGrob(arrangeGrob(voom_plot, left=textGrob("A", vjust=-10, hj
 
 ```
 
-**Fig 15.** _Figure reports the mean-variance relationship pre -and post application of the voom function. Fig 15A reports the average log-CPM against the quarter root of the variance. Fig 15B reports average log-CPM against the log2(st.dev). Blue line reports the average log2(st.dev). The red line is a linear trend fitted to the black dots. Each black dot represents a gene. Fig 15A illustrates that the variance is decresing when the average expression is increasing. In Fig 15B the dependency is removed and the mean variance is unchanged when the average expression increases._      
+**Fig 15.** _Figure reports the mean-variance relationship pre -and post application of the voom function. Fig 15A reports the average log-CPM against the quarter root of the variance. Fig 15B reports average log-CPM against the $log_2(st.dev)$. Blue line reports the average $log_2(st.dev)$. The red line is a linear trend fitted to the black dots. Each black dot represents a gene. Fig 15A illustrates that the variance is decresing when the average expression is increasing. In Fig 15B the dependency is removed and the mean variance is unchanged when the average expression increases._      
 
 **Fig 16. Hierarchical clustering and circular packing plot of 1000 genes with highest F-value**
 
@@ -1084,7 +1054,7 @@ grid.arrange(arrangeGrob(arrangeGrob(voom_plot, left=textGrob("A", vjust=-10, hj
 #1. Calculating F-statistica
 DT_toptableF <- data.table(topTableF(DT_efit, number=Inf, genelist = DT_read_count_filtered[,SYMBOL]))
 #2. Subsetting the 500 genes with the highest F-statistica
-DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1100, ProbeID]
+DT_toptableF <- DT_toptableF[!is.na(ProbeID)][1:1500, ProbeID]
 #3. Retrieving log-CPM values for the genes
 DT_toptableF <- DT_lcpm[DT_lcpm[,SYMBOL] %in% DT_toptableF]
 #4. Creating a dissimilarity matrix
@@ -1245,14 +1215,14 @@ volcano_plot <- ggplot(DT_volcano,aes(logFC,log.odds))+
   theme(axis.title = element_text(face="bold", size=22))
 
 ###SECTION OUTPUT
-plot_grid(arrangeGrob(mean_difference_plot, left=textGrob("A", vjust=-15, hjust=-2, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(volcano_plot, left=textGrob("B", vjust=-15, hjust=-2, gp=gpar(fontsize=20, fontface=2))))
+plot_grid(arrangeGrob(mean_difference_plot, left=textGrob("A", vjust=-11, hjust=-2, gp=gpar(fontsize=20, fontface=2))), arrangeGrob(volcano_plot, left=textGrob("B", vjust=-11, hjust=-2, gp=gpar(fontsize=20, fontface=2))))
 
 # ggsave("mean_difference_plot.jpg",mean_difference_plot, dpi=1000, height=7, width=14)
 # ggsave("volcano_plot.jpg",volcano_plot, dpi=1000, height=7, width=14)
 
 ```
 
-**Fig 18.** _Figure 18A reports a mean-difference plot which illustrates the number of over -and under expressed genes. Threshold is set at log2(fold change) +/-1 (blue lines). Blue dots represents genes above or below the log-fold change thresholds while red dots represent those genes which are above/below the thresholds and are significantly (p<1e-6) differentially expressed. Fig 18B is a volcano plot which reports the number of significantly (p<1e-6) over -and underexpressed genes (marked with red). Blue dots represent genes which have logFC <-1 or >1 but are not significantly expressed. Data in both plots is for the contrast "MSC[SCI] vs MSC[naive]"._
+**Fig 18.** _Figure 18A reports a mean-difference plot which illustrates the number of over -and under expressed genes. Threshold is set at $log_2(fold change)$ +/-1 (blue lines). Blue dots represents genes above or below the log-fold change thresholds while red dots represent those genes which are above/below the thresholds and are significantly (p<1e-6) differentially expressed. Fig 18B is a volcano plot which reports the number of significantly (p<1e-6) over -and underexpressed genes (marked with red). Blue dots represent genes which have logFC <-1 or >1 but are not significantly expressed. Data in both plots is for the contrast "MSC[SCI] vs MSC[naive]"._
 
 **Table 4. 10 most significantly up -and downregulated differentially expressed genes**
 
@@ -1410,7 +1380,6 @@ names(chord_data) <- c("group", "cluster")
 chord_data <- matrix(with(chord_data, table(group, cluster)), ncol=7)
 colnames(chord_data) <- paste(rep("C", 7), 1:7, sep=":") 
 rownames(chord_data) <- c("In vitro", "Naive", "SCI")
-
 #3. Chord diagram plot
 grid_col <- c(`In vitro` = color_palette[1], 
               Naive = color_palette[3], 
